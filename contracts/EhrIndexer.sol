@@ -4,7 +4,7 @@ import "hardhat/console.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/access/AccessControl.sol";
 
-contract EhrIndexer is Ownable, AccessControl {
+contract EhrIndexer is Ownable {
   struct DocumentMeta {
     uint8 docType;
     uint8 status;
@@ -18,24 +18,24 @@ contract EhrIndexer is Ownable, AccessControl {
   mapping (uint256 => uint256) public ehrSubject;  // subjectKey -> ehr_id
   mapping (uint256 => bytes) public docAccess;
   mapping (uint256 => bytes) public dataAccess;
-
-  bytes32 public constant DOCTOR_ADMIN = keccak256("DOCTOR_ADMIN");
-  bytes32 public constant DOCTOR = keccak256("DOCTOR");
+  mapping (address => bool) public allowedChange;
 
   event EhrSubjectSet(uint256 subjectKey, uint256 ehrId);
   event EhrDocSet(uint256 ehrId, uint256 docKey);
   event DocAccessChanged(uint256 userId, bytes access);
   event DataAccessChanged(uint256 userId, bytes access);
 
-  constructor() {
-    _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
-    _grantRole(DOCTOR_ADMIN, msg.sender);
-    _grantRole(DOCTOR, msg.sender);
-    _setRoleAdmin(DOCTOR, DOCTOR_ADMIN);
+  modifier onlyAllowed(address _addr) {
+    require(allowedChange[_addr] == true, "Not allowed");
+    _;
   }
 
-  function setEhrUser(uint256 userId, uint256 ehrId) external returns (uint256) {
-    require(hasRole(DOCTOR_ADMIN, msg.sender), "Error: Restricted");
+  function setAllowed(address addr, bool allowed) external onlyOwner() returns (bool) {
+    allowedChange[addr] = allowed;
+    return true;
+  }
+
+  function setEhrUser(uint256 userId, uint256 ehrId) external onlyAllowed(msg.sender) returns (uint256) {
     ehrUsers[userId] = ehrId;
     return ehrId;
   }
@@ -47,8 +47,7 @@ contract EhrIndexer is Ownable, AccessControl {
     uint8 _status,
     uint256 _storageId,
     bytes memory _docIdEncrypted,
-    uint32 _timestamp) external returns (uint256) {
-      require(hasRole(DOCTOR, msg.sender), "Error: Restricted");
+    uint32 _timestamp) external onlyAllowed(msg.sender) returns (uint256) {
       DocumentMeta storage doc = ehrDocs[ehrId][docKey];
       doc.docType = _docType;
       doc.status = _status;
@@ -65,8 +64,7 @@ contract EhrIndexer is Ownable, AccessControl {
     uint8 _status,
     uint256 _storageId,
     bytes memory _docIdEncrypted,
-    uint32 _timestamp) external returns (uint256) {
-      require(hasRole(DOCTOR, msg.sender), "Error: Restricted");
+    uint32 _timestamp) external onlyAllowed(msg.sender) returns (uint256) {
       DocumentMeta memory doc;
       doc.docType = _docType;
       doc.status = _status;
@@ -77,22 +75,19 @@ contract EhrIndexer is Ownable, AccessControl {
       return ehrDocs[ehrId].length;
   }
 
-  function setEhrSubject(uint256 subjectKey, uint256 _ehrId) external returns (uint256) {
-    require(hasRole(DOCTOR, msg.sender), "Error: Restricted");
+  function setEhrSubject(uint256 subjectKey, uint256 _ehrId) external onlyAllowed(msg.sender) returns (uint256) {
     ehrSubject[subjectKey] = _ehrId;
     emit EhrSubjectSet(subjectKey, _ehrId);
     return _ehrId;
   }
 
-  function setDocAccess(uint256 userId, bytes memory _access) external returns (uint256) {
-    require(hasRole(DOCTOR_ADMIN, msg.sender), "Error: Restricted");
+  function setDocAccess(uint256 userId, bytes memory _access) external onlyAllowed(msg.sender) returns (uint256) {
     docAccess[userId] = _access;
     emit DocAccessChanged(userId, _access);
     return userId;
   }
 
-  function setDataAccess(uint256 userId, bytes memory _access) external returns (uint256) {
-    require(hasRole(DOCTOR_ADMIN, msg.sender), "Error: Restricted");
+  function setDataAccess(uint256 userId, bytes memory _access) external onlyAllowed(msg.sender) returns (uint256) {
     dataAccess[userId] = _access;
     emit DataAccessChanged(userId, _access);
     return userId;
