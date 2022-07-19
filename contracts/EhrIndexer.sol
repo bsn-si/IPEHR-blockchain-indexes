@@ -40,39 +40,12 @@ contract EhrIndexer is Ownable {
     return ehrId;
   }
 
-  function setEhrDoc(
-    uint256 ehrId,
-    uint256 docKey,
-    uint8 _docType,
-    uint8 _status,
-    uint256 _storageId,
-    bytes memory _docIdEncrypted,
-    uint32 _timestamp) external onlyAllowed(msg.sender) returns (uint256) {
-      DocumentMeta storage doc = ehrDocs[ehrId][docKey];
-      doc.docType = _docType;
-      doc.status = _status;
-      doc.storageId = _storageId;
-      doc.docIdEncrypted = _docIdEncrypted;
-      doc.timestamp = _timestamp;
-      emit EhrDocSet(ehrId, docKey);
-      return docKey;
+  function addEhrDoc(uint256 ehrId, DocumentMeta calldata docMeta) external onlyAllowed(msg.sender) {
+      ehrDocs[ehrId].push(docMeta);
   }
 
-  function addEhrDoc(
-    uint256 ehrId,
-    uint8 _docType,
-    uint8 _status,
-    uint256 _storageId,
-    bytes memory _docIdEncrypted,
-    uint32 _timestamp) external onlyAllowed(msg.sender) returns (uint256) {
-      DocumentMeta memory doc;
-      doc.docType = _docType;
-      doc.status = _status;
-      doc.storageId = _storageId;
-      doc.docIdEncrypted = _docIdEncrypted;
-      doc.timestamp = _timestamp;
-      ehrDocs[ehrId].push(doc);
-      return ehrDocs[ehrId].length;
+  function getEhrDocs(uint256 ehrId) public view returns(DocumentMeta[] memory) {
+    return ehrDocs[ehrId];
   }
 
   function setEhrSubject(uint256 subjectKey, uint256 _ehrId) external onlyAllowed(msg.sender) returns (uint256) {
