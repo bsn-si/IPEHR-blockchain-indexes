@@ -21,7 +21,7 @@ contract EhrIndexer is Ownable {
   mapping (address => bool) public allowedChange;
 
   event EhrSubjectSet(uint256 subjectKey, uint256 ehrId);
-  event EhrDocSet(uint256 ehrId, uint256 docKey);
+  event EhrDocAdded(uint256 ehrId, uint256 storageId);
   event DocAccessChanged(uint256 userId, bytes access);
   event DataAccessChanged(uint256 userId, bytes access);
 
@@ -42,6 +42,7 @@ contract EhrIndexer is Ownable {
 
   function addEhrDoc(uint256 ehrId, DocumentMeta calldata docMeta) external onlyAllowed(msg.sender) {
       ehrDocs[ehrId].push(docMeta);
+      emit EhrDocAdded(ehrId, docMeta.storageId);
   }
 
   function getEhrDocs(uint256 ehrId) public view returns(DocumentMeta[] memory) {
