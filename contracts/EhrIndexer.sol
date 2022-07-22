@@ -2,9 +2,9 @@ pragma solidity ^0.8.0;
 
 import "hardhat/console.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
-import "@openzeppelin/contracts/access/AccessControl.sol";
+import "@openzeppelin/contracts/utils/Multicall.sol";
 
-contract EhrIndexer is Ownable {
+contract EhrIndexer is Ownable, Multicall {
   struct DocumentMeta {
     uint8 docType;
     uint8 status;

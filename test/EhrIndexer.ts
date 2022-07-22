@@ -82,4 +82,22 @@ describe("EhrIndexer", function () {
 
     expect(access).to.equal("0x01");
   });
+
+  it("Should perform multicall", async function () {
+    const { indexer, owner, otherAddress } = await loadFixture(
+      deployIndexerFixture
+    );
+
+    const encodedTransaction = indexer.interface.encodeFunctionData(
+      "setAllowed",
+      [owner.address, true]
+    );
+
+    const encodedTransaction1 = indexer.interface.encodeFunctionData(
+      "setAllowed",
+      [otherAddress.address, true]
+    );
+
+    await indexer.multicall([encodedTransaction, encodedTransaction1]);
+  });
 });
