@@ -28,11 +28,20 @@ describe("EhrIndexer", function () {
 
     await indexer
       .connect(otherAddress)
-      .addEhrDoc(11, [11, 11, 11, "0x414141", 31313]);
+      .addEhrDoc(11, [
+        1,
+        11,
+        ethers.utils.formatBytes32String("test"),
+        ethers.utils.formatBytes32String("testest"),
+        ethers.utils.formatBytes32String("testie"),
+        "0x909090",
+        false,
+        1660086539,
+      ]);
 
     const doc = await indexer.ehrDocs(11, 0);
 
-    expect(doc[4]).to.equal(31313);
+    expect(doc.isLast).to.equal(false);
   });
 
   it("Should set ehr user", async function () {
