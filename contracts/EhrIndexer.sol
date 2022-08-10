@@ -39,7 +39,7 @@ contract EhrIndexer is Ownable, Multicall {
   }
 
   Node public dataSearch;
-  mapping (uint256 => DocumentMeta[]) public ehrDocs; // ehr_id -> DocumentMeta[]
+  mapping (uint256 => mapping(DocType => DocumentMeta[])) public ehrDocs; // ehr_id -> docType -> DocumentMeta[]
   mapping (uint256 => uint256) public ehrUsers; // userId -> EHRid
   mapping (uint256 => uint256) public ehrSubject;  // subjectKey -> ehr_id
   mapping (uint256 => bytes) public docAccess;
@@ -67,26 +67,22 @@ contract EhrIndexer is Ownable, Multicall {
   }
 
   function addEhrDoc(uint256 ehrId, DocumentMeta memory docMeta) external onlyAllowed(msg.sender) {
-      bool ehrAlreadyExists = false;
       if (docMeta.docType == DocType.Ehr) {
-        for (uint256 index = 0; index < ehrDocs[ehrId].length; index++) {
-          if (ehrDocs[ehrId][index].docType == DocType.Ehr) ehrAlreadyExists = true;
-        }
+        if (ehrDocs[ehrId][DocType.Ehr].length > 0) revert("Ehr already exists");
       }
-      require(!ehrAlreadyExists, "Ehr already exists");
 
       if (docMeta.docType == DocType.Composition) {
-        for (uint256 index = 0; index < ehrDocs[ehrId].length; index++) {
-          if (ehrDocs[ehrId][index].docType == DocType.Composition) ehrDocs[ehrId][index].isLast = false;
+        for (uint256 index = 0; index < ehrDocs[ehrId][docMeta.docType].length; index++) {
+          if (ehrDocs[ehrId][docMeta.docType][index].docType == DocType.Composition) ehrDocs[ehrId][docMeta.docType][index].isLast = false;
         }
         docMeta.isLast = true;
       }
-      ehrDocs[ehrId].push(docMeta);
+      ehrDocs[ehrId][docMeta.docType].push(docMeta);
       emit EhrDocAdded(ehrId, docMeta.cID);
   }
 
-  function getEhrDocs(uint256 ehrId) public view returns(DocumentMeta[] memory) {
-    return ehrDocs[ehrId];
+  function getEhrDocs(uint256 ehrId, DocType docType) public view returns(DocumentMeta[] memory) {
+    return ehrDocs[ehrId][docType];
   }
 
   function setEhrSubject(uint256 subjectKey, uint256 _ehrId) external onlyAllowed(msg.sender) returns (uint256) {
@@ -107,11 +103,9 @@ contract EhrIndexer is Ownable, Multicall {
     return userId;
   }
 
-  function getLastEhrDocByType(uint256 ehrId, DocType docType) public view returns(DocumentMeta memory) {
-    uint256 lastFoundIndex;
-    for (uint256 index = 0; index < ehrDocs[ehrId].length; index++) {
-      if (ehrDocs[ehrId][index].docType == docType) lastFoundIndex = index;
+  function getLastEhrDocByType(uint256 ehrId, DocType docType) public view returns(DocumentMeta memory docMeta) {
+    for (uint256 index = 0; index < ehrDocs[ehrId][docType].length; index++) {
+      if (ehrDocs[ehrId][docType][index].isLast == true) return ehrDocs[ehrId][docType][index];
     }
-    return ehrDocs[ehrId][lastFoundIndex];
   }
 } 
