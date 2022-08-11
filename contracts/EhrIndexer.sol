@@ -49,17 +49,17 @@ contract EhrIndexer is Ownable, Multicall {
   }
 
   Node public dataSearch;
-  mapping (bytes32  => mapping(DocType => DocumentMeta[])) public ehrDocs; // ehr_id -> docType -> DocumentMeta[]
-  mapping (bytes32  => bytes32) public ehrUsers; // userId -> EHRid
-  mapping (bytes32  => bytes32) public ehrSubject;  // subjectKey -> ehr_id
-  mapping (bytes32  => bytes) public docAccess;
-  mapping (bytes32  => bytes) public dataAccess;
+  mapping (bytes32 => mapping(DocType => DocumentMeta[])) public ehrDocs; // ehr_id -> docType -> DocumentMeta[]
+  mapping (bytes32 => bytes32) public ehrUsers; // userId -> EHRid
+  mapping (bytes32 => bytes32) public ehrSubject;  // subjectKey -> ehr_id
+  mapping (bytes32 => bytes) public docAccess;
+  mapping (bytes32 => bytes) public groupAccess;
   mapping (address => bool) public allowedChange;
 
-  event EhrSubjectSet(bytes32  subjectKey, bytes32  ehrId);
-  event EhrDocAdded(bytes32  ehrId, bytes CID);
-  event DocAccessChanged(bytes32  key, bytes access);
-  event DataAccessChanged(bytes32  key, bytes access);
+  event EhrSubjectSet(bytes32 subjectKey, bytes32  ehrId);
+  event EhrDocAdded(bytes32 ehrId, bytes CID);
+  event DocAccessChanged(bytes32 key, bytes access);
+  event GroupAccessChanged(bytes32 key, bytes access);
 
   modifier onlyAllowed(address _addr) {
     require(allowedChange[_addr] == true, "Not allowed");
@@ -116,9 +116,9 @@ contract EhrIndexer is Ownable, Multicall {
     emit DocAccessChanged(key, access);
   }
 
-  function setDataAccess(bytes32 key, bytes calldata access) external onlyAllowed(msg.sender) {
-    dataAccess[key] = access;
-    emit DataAccessChanged(key, access);
+  function setGroupAccess(bytes32 key, bytes calldata access) external onlyAllowed(msg.sender) {
+    groupAccess[key] = access;
+    emit GroupAccessChanged(key, access);
   }
 
   function getLastEhrDocByType(bytes32 ehrId, DocType docType) public view returns(DocumentMeta memory) {
