@@ -8,6 +8,7 @@ contract EhrIndexer is Ownable, Multicall {
     Error codes:
     ADL - already deleted
     WTP - wrong type passed
+    LST - new version of the EHR document must be the latest
   */
 
   enum DocType { Ehr, EhrAccess, EhrStatus , Composition }
@@ -16,10 +17,12 @@ contract EhrIndexer is Ownable, Multicall {
   struct DocumentMeta {
     DocType docType;
     DocStatus status;
-    bytes32 cID;
+    bytes   CID;
+    bytes   dealCID;
+    bytes   minerAddress;
+    bytes   docUIDEncrypted;
     bytes32 docBaseUIDHash;
     bytes32 version;
-    bytes   docUIDEncrypted;
     bool    isLast;
     uint32  timestamp;
   }
@@ -54,7 +57,7 @@ contract EhrIndexer is Ownable, Multicall {
   mapping (address => bool) public allowedChange;
 
   event EhrSubjectSet(bytes32  subjectKey, bytes32  ehrId);
-  event EhrDocAdded(bytes32  ehrId, bytes32 cId);
+  event EhrDocAdded(bytes32  ehrId, bytes CID);
   event DocAccessChanged(bytes32  userId, bytes access);
   event DataAccessChanged(bytes32  userId, bytes access);
 
@@ -63,89 +66,111 @@ contract EhrIndexer is Ownable, Multicall {
     _;
   }
 
-  function setAllowed(address addr, bool allowed) external onlyOwner() returns (bool) {
+  function setAllowed(address addr, bool allowed) external onlyOwner() {
     allowedChange[addr] = allowed;
-    return true;
   }
 
-  function setEhrUser(bytes32 userId, bytes32 ehrId) external onlyAllowed(msg.sender) returns (bytes32) {
+  function setEhrUser(bytes32 userId, bytes32 ehrId) external onlyAllowed(msg.sender) {
     ehrUsers[userId] = ehrId;
-    return ehrId;
   }
 
-  function addEhrDoc(bytes32 ehrId, DocumentMeta memory docMeta) external onlyAllowed(msg.sender) {
+  function addEhrDoc(bytes32 ehrId, DocumentMeta calldata docMeta) external onlyAllowed(msg.sender) {
+      require(docMeta.isLast == true, "LST");
+
       if (docMeta.docType == DocType.Ehr) {
-        if (ehrDocs[ehrId][DocType.Ehr].length > 0) revert("Ehr already exists");
+        if (ehrDocs[ehrId][DocType.Ehr].length > 0) {
+          revert("Ehr already exists");
+        }
+      }
+
+      uint i;
+      if (docMeta.docType == DocType.EhrStatus) {
+        for (i = 0; i < ehrDocs[ehrId][DocType.EhrStatus].length; i++) {
+            ehrDocs[ehrId][DocType.EhrStatus][i].isLast = false;
+        }
       }
 
       if (docMeta.docType == DocType.Composition) {
-        for (uint256 index = 0; index < ehrDocs[ehrId][docMeta.docType].length; index++) {
-          if (ehrDocs[ehrId][docMeta.docType][index].docType == DocType.Composition) ehrDocs[ehrId][docMeta.docType][index].isLast = false;
+        for (i = 0; i < ehrDocs[ehrId][DocType.Composition].length; i++) {
+          if (ehrDocs[ehrId][DocType.Composition][i].docBaseUIDHash == docMeta.docBaseUIDHash) {
+            ehrDocs[ehrId][DocType.Composition][i].isLast = false;
+          }
         }
-        docMeta.isLast = true;
       }
+
       ehrDocs[ehrId][docMeta.docType].push(docMeta);
-      emit EhrDocAdded(ehrId, docMeta.cID);
+      emit EhrDocAdded(ehrId, docMeta.CID);
   }
 
   function getEhrDocs(bytes32 ehrId, DocType docType) public view returns(DocumentMeta[] memory) {
     return ehrDocs[ehrId][docType];
   }
 
-  function setEhrSubject(bytes32 subjectKey, bytes32 _ehrId) external onlyAllowed(msg.sender) returns (bytes32) {
-    ehrSubject[subjectKey] = _ehrId;
-    emit EhrSubjectSet(subjectKey, _ehrId);
-    return _ehrId;
+  function setEhrSubject(bytes32 subjectKey, bytes32 ehrId) external onlyAllowed(msg.sender) {
+    ehrSubject[subjectKey] = ehrId;
+    emit EhrSubjectSet(subjectKey, ehrId);
   }
 
-  function setDocAccess(bytes32 userId, bytes memory _access) external onlyAllowed(msg.sender) returns (bytes32) {
-    docAccess[userId] = _access;
-    emit DocAccessChanged(userId, _access);
-    return userId;
+  function setDocAccess(bytes32 userId, bytes calldata access) external onlyAllowed(msg.sender) {
+    docAccess[userId] = access;
+    emit DocAccessChanged(userId, access);
   }
 
-  function setDataAccess(bytes32 userId, bytes memory _access) external onlyAllowed(msg.sender) returns (bytes32) {
-    dataAccess[userId] = _access;
-    emit DataAccessChanged(userId, _access);
-    return userId;
+  function setDataAccess(bytes32 userId, bytes calldata access) external onlyAllowed(msg.sender) {
+    dataAccess[userId] = access;
+    emit DataAccessChanged(userId, access);
   }
 
-  function getLastEhrDocByType(bytes32 ehrId, DocType docType) public view returns(DocumentMeta memory docMeta) {
-    for (uint256 index = 0; index < ehrDocs[ehrId][docType].length; index++) {
-      if (ehrDocs[ehrId][docType][index].isLast == true) return ehrDocs[ehrId][docType][index];
-    }
-  }
-
-  function deleteDoc(bytes32 ehrId, DocType docType, bytes32 docBaseUIDHash, bytes32 version) external onlyAllowed(msg.sender) {
-    require(docType == DocType.Composition, "WTP");
-    uint256 foundIndex;
-    for (uint256 index = 0; index < ehrDocs[ehrId][docType].length; index++) {
-      if (ehrDocs[ehrId][docType][index].docBaseUIDHash == docBaseUIDHash &&
-      ehrDocs[ehrId][docType][index].version == version) foundIndex = index;
-    }
-    require (ehrDocs[ehrId][docType][foundIndex].status != DocStatus.Deleted, "ADL");
-    ehrDocs[ehrId][docType][foundIndex].status = DocStatus.Deleted;
-  }
-
-  function getDocByVersion(bytes32 ehrId, DocType docType, bytes32 docBaseUIDHash, bytes32 version) public view returns (DocumentMeta memory docMeta) {
-    for (uint256 index = 0; index < ehrDocs[ehrId][docType].length; index++) {
-      if (ehrDocs[ehrId][docType][index].docBaseUIDHash == docBaseUIDHash &&
-      ehrDocs[ehrId][docType][index].version == version) return ehrDocs[ehrId][docType][index];
-    }
-  }
-
-  function getDocLastByBaseID(bytes32 ehrId, DocType docType, bytes32 docBaseUIDHash) public view returns (DocumentMeta memory _docMeta) {
+  function getLastEhrDocByType(bytes32 ehrId, DocType docType) public view returns(DocumentMeta memory) {
     DocumentMeta memory docMeta;
-    for (uint256 index = 0; index < ehrDocs[ehrId][docType].length; index++) {
-      if (ehrDocs[ehrId][docType][index].docBaseUIDHash == docBaseUIDHash) docMeta = ehrDocs[ehrId][docType][index];
+    for (uint i = 0; i < ehrDocs[ehrId][docType].length; i++) {
+      if (ehrDocs[ehrId][docType][i].isLast == true) {
+        docMeta = ehrDocs[ehrId][docType][i];
+        break;
+      }
     }
     return docMeta;
   }
 
-  function getDocByTime(bytes32 ehrId, DocType docType, uint32 timestamp) public view returns (DocumentMeta memory _docMeta) {
+  function deleteDoc(bytes32 ehrId, DocType docType, bytes32 docBaseUIDHash, bytes32 version) external onlyAllowed(msg.sender) {
+    require(docType == DocType.Composition, "WTP");
+    for (uint i = 0; i < ehrDocs[ehrId][docType].length; i++) {
+      if (ehrDocs[ehrId][docType][i].docBaseUIDHash == docBaseUIDHash && ehrDocs[ehrId][docType][i].version == version) {
+        require (ehrDocs[ehrId][docType][i].status != DocStatus.Deleted, "ADL");
+        ehrDocs[ehrId][docType][i].status = DocStatus.Deleted;
+      }
+    }
+  }
+
+  function getDocByVersion(bytes32 ehrId, DocType docType, bytes32 docBaseUIDHash, bytes32 version) public view returns (DocumentMeta memory) {
     DocumentMeta memory docMeta;
-    for (uint256 index = 0; index < ehrDocs[ehrId][docType].length; index++) {
-      if (ehrDocs[ehrId][docType][index].timestamp <= timestamp) docMeta = ehrDocs[ehrId][docType][index];
+    for (uint i = 0; i < ehrDocs[ehrId][docType].length; i++) {
+      if (ehrDocs[ehrId][docType][i].docBaseUIDHash == docBaseUIDHash && ehrDocs[ehrId][docType][i].version == version) {
+        docMeta = ehrDocs[ehrId][docType][i];
+        break;
+      }
+    }
+    return docMeta;
+  }
+
+  function getDocLastByBaseID(bytes32 ehrId, DocType docType, bytes32 docBaseUIDHash) public view returns (DocumentMeta memory) {
+    DocumentMeta memory docMeta;
+    for (uint i = 0; i < ehrDocs[ehrId][docType].length; i++) {
+      if (ehrDocs[ehrId][docType][i].docBaseUIDHash == docBaseUIDHash) {
+        docMeta = ehrDocs[ehrId][docType][i];
+      }
+    }
+    return docMeta;
+  }
+
+  function getDocByTime(bytes32 ehrId, DocType docType, uint32 timestamp) public view returns (DocumentMeta memory) {
+    DocumentMeta memory docMeta;
+    for (uint i = 0; i < ehrDocs[ehrId][docType].length; i++) {
+      if (ehrDocs[ehrId][docType][i].timestamp <= timestamp) {
+        docMeta = ehrDocs[ehrId][docType][i];
+      } else {
+        break;
+      }
     }
     return docMeta;
   }
