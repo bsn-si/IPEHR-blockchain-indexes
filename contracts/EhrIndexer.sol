@@ -9,6 +9,7 @@ contract EhrIndexer is Ownable, Multicall {
     ADL - already deleted
     WTP - wrong type passed
     LST - new version of the EHR document must be the latest
+    NFD - not found
   */
 
   enum DocType { Ehr, EhrAccess, EhrStatus , Composition }
@@ -49,11 +50,11 @@ contract EhrIndexer is Ownable, Multicall {
   }
 
   Node public dataSearch;
-  mapping (bytes32 => mapping(DocType => DocumentMeta[])) public ehrDocs; // ehr_id -> docType -> DocumentMeta[]
-  mapping (bytes32 => bytes32) public ehrUsers; // userId -> EHRid
-  mapping (bytes32 => bytes32) public ehrSubject;  // subjectKey -> ehr_id
-  mapping (bytes32 => bytes) public docAccess;
-  mapping (bytes32 => bytes) public groupAccess;
+  mapping (bytes32  => mapping(DocType => DocumentMeta[])) public ehrDocs; // ehr_id -> docType -> DocumentMeta[]
+  mapping (bytes32  => bytes32) public ehrUsers; // userId -> EHRid
+  mapping (bytes32  => bytes32) public ehrSubject;  // subjectKey -> ehr_id
+  mapping (bytes32  => bytes) public docAccess;
+  mapping (bytes32  => bytes) public groupAccess;
   mapping (address => bool) public allowedChange;
 
   event EhrSubjectSet(bytes32 subjectKey, bytes32  ehrId);
@@ -123,12 +124,17 @@ contract EhrIndexer is Ownable, Multicall {
 
   function getLastEhrDocByType(bytes32 ehrId, DocType docType) public view returns(DocumentMeta memory) {
     DocumentMeta memory docMeta;
+    bool found;
     for (uint i = 0; i < ehrDocs[ehrId][docType].length; i++) {
       if (ehrDocs[ehrId][docType][i].isLast == true) {
         docMeta = ehrDocs[ehrId][docType][i];
+        found = true;
         break;
       }
     }
+
+    require(found == true, "NFD");
+    
     return docMeta;
   }
 
@@ -144,34 +150,47 @@ contract EhrIndexer is Ownable, Multicall {
 
   function getDocByVersion(bytes32 ehrId, DocType docType, bytes32 docBaseUIDHash, bytes32 version) public view returns (DocumentMeta memory) {
     DocumentMeta memory docMeta;
+    bool found;
     for (uint i = 0; i < ehrDocs[ehrId][docType].length; i++) {
       if (ehrDocs[ehrId][docType][i].docBaseUIDHash == docBaseUIDHash && ehrDocs[ehrId][docType][i].version == version) {
         docMeta = ehrDocs[ehrId][docType][i];
         break;
       }
     }
+
+    require(found == true, "NFD");
+
     return docMeta;
   }
 
   function getDocLastByBaseID(bytes32 ehrId, DocType docType, bytes32 docBaseUIDHash) public view returns (DocumentMeta memory) {
     DocumentMeta memory docMeta;
+    bool found;
     for (uint i = 0; i < ehrDocs[ehrId][docType].length; i++) {
       if (ehrDocs[ehrId][docType][i].docBaseUIDHash == docBaseUIDHash) {
         docMeta = ehrDocs[ehrId][docType][i];
       }
     }
+
+    require(found == true, "NFD");
+
     return docMeta;
   }
 
   function getDocByTime(bytes32 ehrId, DocType docType, uint32 timestamp) public view returns (DocumentMeta memory) {
     DocumentMeta memory docMeta;
+    bool found;
     for (uint i = 0; i < ehrDocs[ehrId][docType].length; i++) {
       if (ehrDocs[ehrId][docType][i].timestamp <= timestamp) {
         docMeta = ehrDocs[ehrId][docType][i];
+        found = true;
       } else {
         break;
       }
     }
+
+    require(found == true, "NFD");
+
     return docMeta;
   }
 }
