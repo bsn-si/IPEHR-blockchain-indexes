@@ -78,16 +78,10 @@ contract EhrIndexer is Ownable, Multicall {
   function addEhrDoc(bytes32 ehrId, DocumentMeta calldata docMeta) external onlyAllowed(msg.sender) {
       require(docMeta.isLast == true, "LST");
 
-      if (docMeta.docType == DocType.Ehr) {
-        if (ehrDocs[ehrId][DocType.Ehr].length > 0) {
-          revert("Ehr already exists");
-        }
-      }
-
       uint i;
-      if (docMeta.docType == DocType.EhrStatus) {
-        for (i = 0; i < ehrDocs[ehrId][DocType.EhrStatus].length; i++) {
-            ehrDocs[ehrId][DocType.EhrStatus][i].isLast = false;
+      if (docMeta.docType == DocType.Ehr || docMeta.docType == DocType.EhrStatus) {
+        for (i = 0; i < ehrDocs[ehrId][docMeta.docType].length; i++) {
+            ehrDocs[ehrId][docMeta.docType][i].isLast = false;
         }
       }
 
