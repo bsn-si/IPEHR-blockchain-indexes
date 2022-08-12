@@ -154,6 +154,7 @@ contract EhrIndexer is Ownable, Multicall {
     for (uint i = 0; i < ehrDocs[ehrId][docType].length; i++) {
       if (ehrDocs[ehrId][docType][i].docBaseUIDHash == docBaseUIDHash && ehrDocs[ehrId][docType][i].version == version) {
         docMeta = ehrDocs[ehrId][docType][i];
+        found = true;
         break;
       }
     }
@@ -169,6 +170,7 @@ contract EhrIndexer is Ownable, Multicall {
     for (uint i = 0; i < ehrDocs[ehrId][docType].length; i++) {
       if (ehrDocs[ehrId][docType][i].docBaseUIDHash == docBaseUIDHash) {
         docMeta = ehrDocs[ehrId][docType][i];
+        found = true;
       }
     }
 
