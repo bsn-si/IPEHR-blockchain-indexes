@@ -4,7 +4,7 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/Multicall.sol";
 
 contract EhrIndexer is Ownable, Multicall {
-  /** 
+  /**
     Error codes:
     ADL - already deleted
     WTP - wrong type passed
@@ -117,19 +117,13 @@ contract EhrIndexer is Ownable, Multicall {
   }
 
   function getLastEhrDocByType(bytes32 ehrId, DocType docType) public view returns(DocumentMeta memory) {
-    DocumentMeta memory docMeta;
-    bool found;
     for (uint i = 0; i < ehrDocs[ehrId][docType].length; i++) {
       if (ehrDocs[ehrId][docType][i].isLast == true) {
-        docMeta = ehrDocs[ehrId][docType][i];
-        found = true;
-        break;
+        return ehrDocs[ehrId][docType][i];
       }
     }
 
-    require(found == true, "NFD");
-    
-    return docMeta;
+    revert("NFD");
   }
 
   function deleteDoc(bytes32 ehrId, DocType docType, bytes32 docBaseUIDHash, bytes32 version) external onlyAllowed(msg.sender) {
@@ -138,54 +132,44 @@ contract EhrIndexer is Ownable, Multicall {
       if (ehrDocs[ehrId][docType][i].docBaseUIDHash == docBaseUIDHash && ehrDocs[ehrId][docType][i].version == version) {
         require (ehrDocs[ehrId][docType][i].status != DocStatus.Deleted, "ADL");
         ehrDocs[ehrId][docType][i].status = DocStatus.Deleted;
+        return;
       }
     }
+
+    revert("NFD");
   }
 
   function getDocByVersion(bytes32 ehrId, DocType docType, bytes32 docBaseUIDHash, bytes32 version) public view returns (DocumentMeta memory) {
-    DocumentMeta memory docMeta;
-    bool found;
     for (uint i = 0; i < ehrDocs[ehrId][docType].length; i++) {
       if (ehrDocs[ehrId][docType][i].docBaseUIDHash == docBaseUIDHash && ehrDocs[ehrId][docType][i].version == version) {
-        docMeta = ehrDocs[ehrId][docType][i];
-        found = true;
-        break;
+        return ehrDocs[ehrId][docType][i];
       }
     }
 
-    require(found == true, "NFD");
-
-    return docMeta;
+    revert("NFD");
   }
 
   function getDocLastByBaseID(bytes32 ehrId, DocType docType, bytes32 docBaseUIDHash) public view returns (DocumentMeta memory) {
-    DocumentMeta memory docMeta;
-    bool found;
     for (uint i = 0; i < ehrDocs[ehrId][docType].length; i++) {
       if (ehrDocs[ehrId][docType][i].docBaseUIDHash == docBaseUIDHash) {
-        docMeta = ehrDocs[ehrId][docType][i];
-        found = true;
+        return ehrDocs[ehrId][docType][i];
       }
     }
 
-    require(found == true, "NFD");
-
-    return docMeta;
+    revert("NFD");
   }
 
   function getDocByTime(bytes32 ehrId, DocType docType, uint32 timestamp) public view returns (DocumentMeta memory) {
     DocumentMeta memory docMeta;
-    bool found;
     for (uint i = 0; i < ehrDocs[ehrId][docType].length; i++) {
       if (ehrDocs[ehrId][docType][i].timestamp <= timestamp) {
         docMeta = ehrDocs[ehrId][docType][i];
-        found = true;
       } else {
         break;
       }
     }
 
-    require(found == true, "NFD");
+    require(docMeta.timestamp != 0, "NFD");
 
     return docMeta;
   }
