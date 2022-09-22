@@ -29,8 +29,8 @@ contract EhrIndexer is Ownable, Multicall {
   }
 
   struct DataEntry {
-    uint128 groupID;
-    mapping (string => bytes) valueSet;
+    bytes16 groupID;
+    mapping (bytes32 => bytes) valueSet;
     bytes docStorIDEncr;
   }
 
@@ -42,14 +42,39 @@ contract EhrIndexer is Ownable, Multicall {
     DataEntry[] dataEntries;
   }
 
-  struct Node {
+  struct NodeStore {
     bytes32 nodeType;
     bytes32 nodeID;
-    mapping (bytes32 => Node) next;
+    mapping (bytes32 => NodeStore) next;  // nodeID -> NodeStore
     mapping (bytes32 => Element) items;
   }
 
-  Node public dataSearch;
+  /* For external function usage */
+  struct Value {
+    bytes32 name;
+    bytes   value;
+  }
+
+  struct DataEntryUpdate {
+    Value[] ValueSet;
+  }
+
+  struct ElementUpdate {
+    bytes32 itemType;
+    bytes32 elementType;
+    bytes32 nodeID;
+    bytes32 name;
+    DataEntryUpdate[] dataEntries;
+  }
+
+  struct NodeUpdate {
+    bytes32[] path;
+    bytes32   nodeType;
+    ElementUpdate[] items;
+  }
+
+  NodeStore dataStorage;
+
   mapping (bytes32  => mapping(DocType => DocumentMeta[])) public ehrDocs; // ehr_id -> docType -> DocumentMeta[]
   mapping (bytes32  => bytes32) public ehrUsers; // userId -> EHRid
   mapping (bytes32  => bytes32) public ehrSubject;  // subjectKey -> ehr_id
@@ -172,5 +197,42 @@ contract EhrIndexer is Ownable, Multicall {
     require(docMeta.timestamp != 0, "NFD");
 
     return docMeta;
+  }
+
+  function updateDataStore(NodeUpdate[] memory dataUpdate, bytes memory docStorID, bytes16 groupID) external {
+    for (uint i = 0; i < dataUpdate.length; i++) {
+      NodeStore storage nextNode = dataStorage;
+      for (uint y = 0; y < dataUpdate[i].path.length; y++) {
+        bytes32 currentPath = dataUpdate[i].path[y];
+        if (nextNode.next[currentPath].nodeID == currentPath) {
+          nextNode = dataStorage.next[currentPath];
+        /* last element of path is target nodeID, should create if doesn't exist */
+        } else if (y == dataUpdate[i].path.length-1) {
+          nextNode.next[currentPath].nodeID = currentPath;
+          nextNode.next[currentPath].nodeType = dataUpdate[i].nodeType;
+          for (uint x = 0; x < dataUpdate[i].items.length; x++) {
+            ElementUpdate memory currentElement = dataUpdate[i].items[x];
+            nextNode.next[currentPath].items[currentElement.nodeID].name = currentElement.name;
+            nextNode.next[currentPath].items[currentElement.nodeID].elementType = currentElement.elementType;
+            nextNode.next[currentPath].items[currentElement.nodeID].nodeID = currentElement.nodeID;
+            nextNode.next[currentPath].items[currentElement.nodeID].itemType = currentElement.itemType;
+
+            for (uint z = 0; z < currentElement.dataEntries.length; z++) {
+              DataEntry storage dataEntry = nextNode.next[currentPath].items[currentElement.nodeID].dataEntries.push();
+              dataEntry.docStorIDEncr = docStorID;
+              dataEntry.groupID = groupID;
+              for (uint b = 0; b < currentElement.dataEntries.length; b++) {
+                for (uint c = 0; c < currentElement.dataEntries[b].ValueSet.length; c++) {
+                  dataEntry.valueSet[currentElement.dataEntries[b].ValueSet[c].name] = currentElement.dataEntries[b].ValueSet[c].value;
+                }
+              }
+            }
+          }
+        /* if we're at the middle of path */
+        } else {
+          break;
+        }
+      }
+    }
   }
 }
