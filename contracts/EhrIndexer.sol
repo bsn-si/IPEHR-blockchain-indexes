@@ -14,6 +14,16 @@ contract EhrIndexer is Ownable, Multicall {
 
   enum DocType { Ehr, EhrAccess, EhrStatus , Composition }
   enum DocStatus { Active, Deleted }
+  enum Role { Patient, Doctor }
+
+  struct User {
+    bytes32   id;
+    bytes32   systemID;
+    Role      role;
+    bytes32[] groups;
+    bytes     pwdHash;
+    bool      isUser;
+  }
 
   struct DocumentMeta {
     DocType docType;
@@ -56,6 +66,7 @@ contract EhrIndexer is Ownable, Multicall {
   mapping (bytes32  => bytes) public docAccess;
   mapping (bytes32  => bytes) public groupAccess;
   mapping (address => bool) public allowedChange;
+  mapping (address => User) users;
 
   event EhrSubjectSet(bytes32 subjectKey, bytes32  ehrId);
   event EhrDocAdded(bytes32 ehrId, bytes CID);
@@ -172,5 +183,17 @@ contract EhrIndexer is Ownable, Multicall {
     require(docMeta.timestamp != 0, "NFD");
 
     return docMeta;
+  }
+
+  function userAdd(address userAddr, bytes32 id, Role role, bytes calldata pwdHash) external onlyAllowed(msg.sender) {
+    users[userAddr].id = id;
+    users[userAddr].pwdHash = pwdHash;
+    users[userAddr].role = role;
+    users[userAddr].isUser = true;
+  }
+
+  function getUserPasswordHash(address userAddr) public view returns (bytes memory) {
+    if (!users[userAddr].isUser) revert("NFD");
+    return users[userAddr].pwdHash;
   }
 }
