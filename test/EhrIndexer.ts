@@ -16,8 +16,12 @@ describe("EhrIndexer", function () {
     return { Indexer, indexer, owner, otherAddress };
   }
 
-  async function addEhrDoc(contract: Contract, address?: SignerWithAddress, docType?: number) {
-    const ehrId = ethers.utils.formatBytes32String("ehrId")
+  async function addEhrDoc(
+    contract: Contract,
+    address?: SignerWithAddress,
+    docType?: number
+  ) {
+    const ehrId = ethers.utils.formatBytes32String("ehrId");
     const ehrDoc = {
       docType: docType || 1,
       status: 0,
@@ -52,7 +56,11 @@ describe("EhrIndexer", function () {
 
     await addEhrDoc(indexer, otherAddress)
 
-    const doc = await indexer.ehrDocs(ethers.utils.formatBytes32String("ehrId"), 1, 0);
+    const doc = await indexer.ehrDocs(
+      ethers.utils.formatBytes32String("ehrId"),
+      1,
+      0
+    );
 
     expect(doc.isLast).to.equal(true);
   });
@@ -62,9 +70,16 @@ describe("EhrIndexer", function () {
 
     await indexer.setAllowed(otherAddress.address, true);
 
-    await indexer.connect(otherAddress).setEhrUser(ethers.utils.formatBytes32String("userId"), ethers.utils.formatBytes32String("ehrId"));
+    await indexer
+      .connect(otherAddress)
+      .setEhrUser(
+        ethers.utils.formatBytes32String("userId"),
+        ethers.utils.formatBytes32String("ehrId")
+      );
 
-    const user = await indexer.ehrUsers(ethers.utils.formatBytes32String("userId"));
+    const user = await indexer.ehrUsers(
+      ethers.utils.formatBytes32String("userId")
+    );
 
     expect(user).to.equal(ethers.utils.formatBytes32String("ehrId"));
   });
@@ -74,9 +89,16 @@ describe("EhrIndexer", function () {
 
     await indexer.setAllowed(otherAddress.address, true);
 
-    await indexer.connect(otherAddress).setEhrSubject(ethers.utils.formatBytes32String("subjectKey"), ethers.utils.formatBytes32String("ehrId"));
+    await indexer
+      .connect(otherAddress)
+      .setEhrSubject(
+        ethers.utils.formatBytes32String("subjectKey"),
+        ethers.utils.formatBytes32String("ehrId")
+      );
 
-    const subject = await indexer.ehrSubject(ethers.utils.formatBytes32String("subjectKey"));
+    const subject = await indexer.ehrSubject(
+      ethers.utils.formatBytes32String("subjectKey")
+    );
 
     expect(subject).to.equal(ethers.utils.formatBytes32String("ehrId"));
   });
@@ -86,9 +108,16 @@ describe("EhrIndexer", function () {
 
     await indexer.setAllowed(otherAddress.address, true);
 
-    await indexer.connect(otherAddress).setDocAccess(ethers.utils.formatBytes32String("docAccess"), ethers.utils.hexlify(0x10101));
+    await indexer
+      .connect(otherAddress)
+      .setDocAccess(
+        ethers.utils.formatBytes32String("docAccess"),
+        ethers.utils.hexlify(0x10101)
+      );
 
-    const access = await indexer.docAccess(ethers.utils.formatBytes32String("docAccess"));
+    const access = await indexer.docAccess(
+      ethers.utils.formatBytes32String("docAccess")
+    );
 
     expect(access).to.equal(ethers.utils.hexlify(0x10101));
   });
@@ -112,75 +141,104 @@ describe("EhrIndexer", function () {
   });
 
   it("Should retrieve last ehr doc by type", async function () {
-    const { indexer, otherAddress } = await loadFixture(
-      deployIndexerFixture
-    );
+    const { indexer, otherAddress } = await loadFixture(deployIndexerFixture);
 
     await indexer.setAllowed(otherAddress.address, true);
 
     await addEhrDoc(indexer, otherAddress)
 
-    const doc = await indexer.getLastEhrDocByType(ethers.utils.formatBytes32String("ehrId"), 1)
+    const doc = await indexer.getLastEhrDocByType(
+      ethers.utils.formatBytes32String("ehrId"),
+      1
+    );
 
     expect(doc.isLast).to.equal(true);
     expect(doc.docType).to.equal(1);
   });
 
   it("Should delete doc", async function () {
-    const { indexer, otherAddress } = await loadFixture(
-      deployIndexerFixture
-    );
+    const { indexer, otherAddress } = await loadFixture(deployIndexerFixture);
 
     await indexer.setAllowed(otherAddress.address, true);
 
-    const { ehrId, ehrDoc } = await addEhrDoc(indexer, otherAddress, 3)
+    const { ehrId, ehrDoc } = await addEhrDoc(indexer, otherAddress, 3);
 
-    await indexer.connect(otherAddress).deleteDoc(ehrId, ehrDoc.docType, ehrDoc.docBaseUIDHash, ehrDoc.version)
+    await indexer
+      .connect(otherAddress)
+      .deleteDoc(ehrId, ehrDoc.docType, ehrDoc.docBaseUIDHash, ehrDoc.version);
 
-    const doc = await indexer.ehrDocs(ehrId, ehrDoc.docType, 0)
+    const doc = await indexer.ehrDocs(ehrId, ehrDoc.docType, 0);
 
     expect(doc.status).to.equal(1)
   });
 
   it("Should get ehrDoc by version", async function () {
-    const { indexer, otherAddress } = await loadFixture(
-      deployIndexerFixture
-    );
+    const { indexer, otherAddress } = await loadFixture(deployIndexerFixture);
 
     await indexer.setAllowed(otherAddress.address, true);
 
-    const { ehrId, ehrDoc } = await addEhrDoc(indexer, otherAddress, 3)
+    const { ehrId, ehrDoc } = await addEhrDoc(indexer, otherAddress, 3);
 
-    const doc = await indexer.getDocByVersion(ehrId, ehrDoc.docType, ehrDoc.docBaseUIDHash, ehrDoc.version)
+    const doc = await indexer.getDocByVersion(
+      ehrId,
+      ehrDoc.docType,
+      ehrDoc.docBaseUIDHash,
+      ehrDoc.version
+    );
 
-    expect(doc.docUIDEncrypted).to.equal(ehrDoc.docUIDEncrypted)
+    expect(doc.docUIDEncrypted).to.equal(ehrDoc.docUIDEncrypted);
   });
 
   it("Should get ehrDoc by base id", async function () {
-    const { indexer, otherAddress } = await loadFixture(
-      deployIndexerFixture
-    );
+    const { indexer, otherAddress } = await loadFixture(deployIndexerFixture);
 
     await indexer.setAllowed(otherAddress.address, true);
 
-    const { ehrId, ehrDoc } = await addEhrDoc(indexer, otherAddress, 3)
+    const { ehrId, ehrDoc } = await addEhrDoc(indexer, otherAddress, 3);
 
-    const doc = await indexer.getDocLastByBaseID(ehrId, ehrDoc.docType, ehrDoc.docBaseUIDHash)
+    const doc = await indexer.getDocLastByBaseID(
+      ehrId,
+      ehrDoc.docType,
+      ehrDoc.docBaseUIDHash
+    );
 
-    expect(doc.docUIDEncrypted).to.equal(ehrDoc.docUIDEncrypted)
+    expect(doc.docUIDEncrypted).to.equal(ehrDoc.docUIDEncrypted);
   });
 
   it("Should get ehrDoc by timestamp", async function () {
-    const { indexer, otherAddress } = await loadFixture(
+    const { indexer, otherAddress } = await loadFixture(deployIndexerFixture);
+
+    await indexer.setAllowed(otherAddress.address, true);
+
+    const { ehrId, ehrDoc } = await addEhrDoc(indexer, otherAddress, 3);
+
+    const doc = await indexer.getDocByTime(
+      ehrId,
+      ehrDoc.docType,
+      ehrDoc.timestamp
+    );
+
+    expect(doc.docUIDEncrypted).to.equal(ehrDoc.docUIDEncrypted);
+  });
+
+  it("Should addUser", async function () {
+    const { indexer, otherAddress, owner } = await loadFixture(
       deployIndexerFixture
     );
 
     await indexer.setAllowed(otherAddress.address, true);
 
-    const { ehrId, ehrDoc } = await addEhrDoc(indexer, otherAddress, 3)
+    await indexer
+      .connect(otherAddress)
+      .userAdd(
+        owner.address,
+        ethers.utils.formatBytes32String("userId"),
+        1,
+        ethers.utils.hexlify(0x010101)
+      );
 
-    const doc = await indexer.getDocByTime(ehrId, ehrDoc.docType, ehrDoc.timestamp)
+    const pwdHash = await indexer.getUserPasswordHash(owner.address);
 
-    expect(doc.docUIDEncrypted).to.equal(ehrDoc.docUIDEncrypted)
+    expect(pwdHash).to.equal(ethers.utils.hexlify(0x010101));
   });
 });
