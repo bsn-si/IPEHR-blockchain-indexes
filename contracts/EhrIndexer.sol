@@ -14,6 +14,7 @@ contract EhrIndexer is Ownable, Multicall, EhrRestrictable, EhrUsers {
     NFD - not found
     AEX - already exists
     DND - access denied
+    TMT - timeout
   */
 
   enum DocType { Ehr, EhrAccess, EhrStatus , Composition }

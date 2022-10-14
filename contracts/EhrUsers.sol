@@ -1,5 +1,6 @@
 pragma solidity ^0.8.4;
 import "./EhrRestrictable.sol";
+import "@openzeppelin/contracts/utils/cryptography/SignatureChecker.sol";
 
 contract EhrUsers is EhrRestrictable {
     enum Role { Patient, Doctor }
@@ -29,8 +30,9 @@ contract EhrUsers is EhrRestrictable {
   mapping (address => User) users;
   mapping(bytes32 => UserGroup) userGroups;
 
-
-  function userAdd(address userAddr, bytes32 id, Role role, bytes calldata pwdHash) external onlyAllowed(msg.sender) {
+  function userAdd(address userAddr, bytes32 id, Role role, bytes calldata pwdHash, uint deadline, address signer, bytes memory signature) external onlyAllowed(msg.sender) beforeDeadline(block.timestamp) {
+    require(block.timestamp < deadline, "TMT" );
+    require(SignatureChecker.isValidSignatureNow(signer, keccak256(msg.data), signature), "DND");
     users[userAddr].id = id;
     users[userAddr].pwdHash = pwdHash;
     users[userAddr].role = role;

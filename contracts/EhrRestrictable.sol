@@ -9,6 +9,11 @@ contract EhrRestrictable is Ownable {
     _;
   }
 
+  modifier beforeDeadline(uint _deadline) {
+    require(block.timestamp < _deadline, "TMT" );
+    _;
+  }
+
   function setAllowed(address addr, bool allowed) external onlyOwner() {
     allowedChange[addr] = allowed;
   }
