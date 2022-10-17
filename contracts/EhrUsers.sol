@@ -1,6 +1,5 @@
 pragma solidity ^0.8.4;
 import "./EhrRestrictable.sol";
-import "@openzeppelin/contracts/utils/cryptography/SignatureChecker.sol";
 
 contract EhrUsers is EhrRestrictable {
     enum Role { Patient, Doctor }
@@ -9,6 +8,7 @@ contract EhrUsers is EhrRestrictable {
   struct Access {
     AccessLevel level;
     bytes       keyEncrypted;
+    bool        isUser;
   }
 
   struct User {
@@ -30,9 +30,8 @@ contract EhrUsers is EhrRestrictable {
   mapping (address => User) users;
   mapping(bytes32 => UserGroup) userGroups;
 
-  function userAdd(address userAddr, bytes32 id, Role role, bytes calldata pwdHash, uint deadline, address signer, bytes memory signature) external onlyAllowed(msg.sender) beforeDeadline(block.timestamp) {
-    require(block.timestamp < deadline, "TMT" );
-    require(SignatureChecker.isValidSignatureNow(signer, keccak256(msg.data), signature), "DND");
+  function userAdd(address userAddr, bytes32 id, Role role, bytes calldata pwdHash, uint deadline, address signer, bytes memory signature) external
+    onlyAllowed(msg.sender) beforeDeadline(deadline) onlySigned(signer, signature) {
     users[userAddr].id = id;
     users[userAddr].pwdHash = pwdHash;
     users[userAddr].role = role;
@@ -44,20 +43,26 @@ contract EhrUsers is EhrRestrictable {
     return users[userAddr].pwdHash;
   }
 
-  function groupCreate(bytes32 groupID, string calldata description, address signer, bytes calldata signature) external onlyAllowed(msg.sender) {
-    if (userGroups[groupID].isGroup) revert ("AEX");
+  function groupCreate(bytes32 groupID, string calldata description, uint deadline, address signer, bytes calldata signature) external
+    onlyAllowed(msg.sender) beforeDeadline(deadline) onlySigned(signer, signature) {
+    require(SignatureChecker.isValidSignatureNow(signer, keccak256(msg.data), signature), "DND");
+    require(userGroups[groupID].isGroup == true, "AEX");
     userGroups[groupID].isGroup = true;
     userGroups[groupID].description = description;
     userGroups[groupID].members[signer].level = AccessLevel.Owner;
   }
 
-  function groupAddUser(bytes32 groupID, address addingUserAddr, address signer, bytes calldata signature) external {
+  function groupAddUser(bytes32 groupID, address addingUserAddr, address signer, bytes calldata signature) external onlySigned(signer, signature) beforeDeadline(block.timestamp) {
     require(userGroups[groupID].members[signer].level == AccessLevel.Owner ||
       userGroups[groupID].members[signer].level == AccessLevel.Admin, "DND");
+    userGroups[groupID].members[addingUserAddr].level = AccessLevel.Read;
+    userGroups[groupID].members[addingUserAddr].isUser = true;
   }
 
-  function groupRemoveUser(bytes32 groupID, address removingUserAddr, address signer, bytes calldata signature) external {
+  function groupRemoveUser(bytes32 groupID, address removingUserAddr, address signer, bytes calldata signature) onlySigned(signer, signature) beforeDeadline(block.timestamp) external {
+    require(SignatureChecker.isValidSignatureNow(signer, keccak256(msg.data), signature), "DND");
     require(userGroups[groupID].members[signer].level == AccessLevel.Owner ||
       userGroups[groupID].members[signer].level == AccessLevel.Admin, "DND");
+      userGroups[groupID].members[removingUserAddr].isUser = false;
   }
 }

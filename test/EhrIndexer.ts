@@ -1,6 +1,6 @@
 import { expect } from "chai";
 import { ethers } from "hardhat";
-import { loadFixture } from "@nomicfoundation/hardhat-network-helpers";
+import { loadFixture, time } from "@nomicfoundation/hardhat-network-helpers";
 import { Contract } from "ethers";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/dist/src/signer-with-address";
 
@@ -228,13 +228,44 @@ describe("EhrIndexer", function () {
 
     await indexer.setAllowed(otherAddress.address, true);
 
+    const message = ethers.utils.solidityKeccak256(
+      ["string"],
+      [
+        ethers.utils.solidityPack(
+          [
+            "bytes",
+            "address",
+            "bytes32",
+            "uint256",
+            "bytes",
+            "uint",
+            "address",
+          ],
+          [
+            ethers.utils.hexlify(0x57dc3b53),
+            owner.address,
+            ethers.utils.formatBytes32String("userId"),
+            1,
+            ethers.utils.hexlify(0x010101),
+            1893272400000,
+            owner.address,
+          ]
+        ),
+      ]
+    );
+
+    console.log(message);
+
     await indexer
       .connect(otherAddress)
       .userAdd(
         owner.address,
         ethers.utils.formatBytes32String("userId"),
         1,
-        ethers.utils.hexlify(0x010101)
+        ethers.utils.hexlify(0x010101),
+        1893272400000,
+        owner.address,
+        message
       );
 
     const pwdHash = await indexer.getUserPasswordHash(owner.address);
