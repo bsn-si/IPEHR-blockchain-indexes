@@ -228,33 +228,10 @@ describe("EhrIndexer", function () {
 
     await indexer.setAllowed(otherAddress.address, true);
 
-    const message = ethers.utils.solidityKeccak256(
-      ["string"],
-      [
-        ethers.utils.solidityPack(
-          [
-            "bytes",
-            "address",
-            "bytes32",
-            "uint256",
-            "bytes",
-            "uint",
-            "address",
-          ],
-          [
-            ethers.utils.hexlify(0x57dc3b53),
-            owner.address,
-            ethers.utils.formatBytes32String("userId"),
-            1,
-            ethers.utils.hexlify(0x010101),
-            1893272400000,
-            owner.address,
-          ]
-        ),
-      ]
-    );
+    const message = "test";
+    const sign = await owner.signMessage(message);
 
-    console.log(message);
+    console.log(message, sign);
 
     await indexer
       .connect(otherAddress)
@@ -264,8 +241,9 @@ describe("EhrIndexer", function () {
         1,
         ethers.utils.hexlify(0x010101),
         1893272400000,
+        ethers.utils.hashMessage(message),
         owner.address,
-        message
+        sign
       );
 
     const pwdHash = await indexer.getUserPasswordHash(owner.address);
