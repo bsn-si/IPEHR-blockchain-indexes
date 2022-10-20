@@ -31,9 +31,11 @@ contract EhrUsers is EhrRestrictable {
   mapping (address => User) users;
   mapping(bytes32 => UserGroup) userGroups;
 
-  function userAdd(address userAddr, bytes32 id, Role role, bytes calldata pwdHash, uint deadline, bytes32 hash, address signer, bytes memory signature) external
+  function userAdd(address userAddr, bytes32 id, Role role, bytes calldata pwdHash, uint deadline, address signer, bytes memory signature) external
     onlyAllowed(msg.sender) beforeDeadline(deadline) {
-    require(SignatureChecker.isValidSignatureNow(signer, hash, signature), "DND");
+    bytes32 payloadHash = keccak256(abi.encode("userAdd", id, role, pwdHash, deadline));
+    bytes32 messageHash = keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32", payloadHash));
+    require(SignatureChecker.isValidSignatureNow(signer, messageHash, signature), "DND");
     users[userAddr].id = id;
     users[userAddr].pwdHash = pwdHash;
     users[userAddr].role = role;

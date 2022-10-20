@@ -228,10 +228,22 @@ describe("EhrIndexer", function () {
 
     await indexer.setAllowed(otherAddress.address, true);
 
-    const message = "test";
-    const sign = await owner.signMessage(message);
+    const payload = ethers.utils.defaultAbiCoder.encode(
+      ["string", "bytes32", "uint256", "bytes", "uint"],
+      [
+        "userAdd",
+        ethers.utils.formatBytes32String("userId"),
+        1,
+        ethers.utils.hexlify(0x010101),
+        1893272400000,
+      ]
+    );
 
-    console.log(message, sign);
+    const payloadHash = ethers.utils.keccak256(payload);
+
+    const signature = await owner.signMessage(
+      ethers.utils.arrayify(payloadHash)
+    );
 
     await indexer
       .connect(otherAddress)
@@ -241,9 +253,8 @@ describe("EhrIndexer", function () {
         1,
         ethers.utils.hexlify(0x010101),
         1893272400000,
-        ethers.utils.hashMessage(message),
         owner.address,
-        sign
+        signature
       );
 
     const pwdHash = await indexer.getUserPasswordHash(owner.address);
