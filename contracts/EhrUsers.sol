@@ -32,9 +32,13 @@ contract EhrUsers is EhrRestrictable {
     onlyAllowed(msg.sender) beforeDeadline(deadline) {
     bytes32 payloadHash = keccak256(abi.encode("userAdd", id, role, pwdHash, deadline));
     require(SignChecker.signCheck(payloadHash, signer, signature), "DND");
-    users[userAddr].id = id;
-    users[userAddr].pwdHash = pwdHash;
-    users[userAddr].role = role;
+    users[userAddr] = User({
+        id: id, 
+        systemID: bytes32(0), 
+        role: role, 
+        groups: new bytes32[](0), 
+        pwdHash: pwdHash 
+    });
   }
 
   function getUserPasswordHash(address userAddr) public view returns (bytes memory) {
@@ -53,13 +57,16 @@ contract EhrUsers is EhrRestrictable {
 
   function groupAddUser(bytes32 groupID, address addingUserAddr, AccessLevel level, bytes calldata keyEncrypted, address signer, bytes calldata signature) external beforeDeadline(block.timestamp) {
     bytes32 payloadHash = keccak256(abi.encode("groupAddUser", groupID, addingUserAddr, level, keyEncrypted));
+
     require(SignChecker.signCheck(payloadHash, signer, signature), "DND");
     require(userGroups[groupID].members[signer] == AccessLevel.Owner ||
       userGroups[groupID].members[signer] == AccessLevel.Admin, "DND");
     require(users[addingUserAddr].id.length > 0, "NFD");
     userGroups[groupID].members[addingUserAddr] = level;
-    groupAccess[keccak256(abi.encode(users[addingUserAddr].id, groupID))].level = level;
-    groupAccess[keccak256(abi.encode(users[addingUserAddr].id, groupID))].keyEncrypted = keyEncrypted;
+    groupAccess[keccak256(abi.encode(users[addingUserAddr].id, groupID))] = Access({
+        level: level,
+        keyEncrypted: keyEncrypted
+    });
   }
 
   function groupRemoveUser(bytes32 groupID, address removingUserAddr, address signer, bytes calldata signature) beforeDeadline(block.timestamp) external {
@@ -69,7 +76,9 @@ contract EhrUsers is EhrRestrictable {
       userGroups[groupID].members[signer] == AccessLevel.Admin, "DND");
     require(users[removingUserAddr].id.length > 0, "NFD");
     userGroups[groupID].members[removingUserAddr] = AccessLevel.NoAccess;
-    groupAccess[keccak256(abi.encode(users[removingUserAddr].id, groupID))].level = AccessLevel.NoAccess;
-    groupAccess[keccak256(abi.encode(users[removingUserAddr].id, groupID))].keyEncrypted = bytes("0");
+    groupAccess[keccak256(abi.encode(users[removingUserAddr].id, groupID))] = Access({
+      level: AccessLevel.NoAccess,
+      keyEncrypted: bytes("0")
+    });
   }
 }
