@@ -68,7 +68,6 @@ contract EhrUsers is EhrRestrictable {
     require(userGroups[groupID].members[signer] == AccessLevel.Owner ||
       userGroups[groupID].members[signer] == AccessLevel.Admin, "DND");
     require(users[removingUserAddr].id.length > 0, "NFD");
-    users[removingUserAddr].id = bytes32(0);
     userGroups[groupID].members[removingUserAddr] = AccessLevel.NoAccess;
     groupAccess[keccak256(abi.encode(users[removingUserAddr].id, groupID))].level = AccessLevel.NoAccess;
     groupAccess[keccak256(abi.encode(users[removingUserAddr].id, groupID))].keyEncrypted = bytes("0");
