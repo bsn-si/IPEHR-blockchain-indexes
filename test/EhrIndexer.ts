@@ -1,12 +1,20 @@
 import { expect } from "chai";
 import { ethers } from "hardhat";
-import { loadFixture, time } from "@nomicfoundation/hardhat-network-helpers";
+import { loadFixture } from "@nomicfoundation/hardhat-network-helpers";
 import { Contract } from "ethers";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/dist/src/signer-with-address";
 
 describe("EhrIndexer", function () {
   async function deployIndexerFixture() {
-    const Indexer = await ethers.getContractFactory("EhrIndexer");
+    const lib = await ethers.getContractFactory("SignChecker");
+    const Lib = await lib.deploy();
+    await Lib.deployed();
+
+    const Indexer = await ethers.getContractFactory("EhrIndexer", {
+      libraries: {
+        SignChecker: Lib.address,
+      },
+    });
     const [owner, otherAddress] = await ethers.getSigners();
 
     const indexer = await Indexer.deploy();
@@ -39,7 +47,7 @@ describe("EhrIndexer", function () {
     } else {
       await contract.addEhrDoc(ehrId, Object.values(ehrDoc));
     }
-    return { ehrId, ehrDoc }
+    return { ehrId, ehrDoc };
   }
 
   it("Should add address to allowed", async function () {
