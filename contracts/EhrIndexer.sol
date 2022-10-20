@@ -2,28 +2,23 @@ pragma solidity ^0.8.4;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/Multicall.sol";
+import "./EhrUsers.sol";
+import "./EhrRestrictable.sol";
 
-contract EhrIndexer is Ownable, Multicall {
+contract EhrIndexer is Ownable, Multicall, EhrRestrictable, EhrUsers {
   /**
     Error codes:
     ADL - already deleted
     WTP - wrong type passed
     LST - new version of the EHR document must be the latest
     NFD - not found
+    AEX - already exists
+    DND - access denied
+    TMT - timeout
   */
 
   enum DocType { Ehr, EhrAccess, EhrStatus , Composition }
   enum DocStatus { Active, Deleted }
-  enum Role { Patient, Doctor }
-
-  struct User {
-    bytes32   id;
-    bytes32   systemID;
-    Role      role;
-    bytes32[] groups;
-    bytes     pwdHash;
-    bool      isUser;
-  }
 
   struct DocumentMeta {
     DocType docType;
@@ -64,23 +59,11 @@ contract EhrIndexer is Ownable, Multicall {
   mapping (bytes32  => bytes32) public ehrUsers; // userId -> EHRid
   mapping (bytes32  => bytes32) public ehrSubject;  // subjectKey -> ehr_id
   mapping (bytes32  => bytes) public docAccess;
-  mapping (bytes32  => bytes) public groupAccess;
-  mapping (address => bool) public allowedChange;
-  mapping (address => User) users;
 
   event EhrSubjectSet(bytes32 subjectKey, bytes32  ehrId);
   event EhrDocAdded(bytes32 ehrId, bytes CID);
   event DocAccessChanged(bytes32 key, bytes access);
   event GroupAccessChanged(bytes32 key, bytes access);
-
-  modifier onlyAllowed(address _addr) {
-    require(allowedChange[_addr] == true, "Not allowed");
-    _;
-  }
-
-  function setAllowed(address addr, bool allowed) external onlyOwner() {
-    allowedChange[addr] = allowed;
-  }
 
   function setEhrUser(bytes32 userId, bytes32 ehrId) external onlyAllowed(msg.sender) {
     ehrUsers[userId] = ehrId;
@@ -120,11 +103,6 @@ contract EhrIndexer is Ownable, Multicall {
   function setDocAccess(bytes32 key, bytes calldata access) external onlyAllowed(msg.sender) {
     docAccess[key] = access;
     emit DocAccessChanged(key, access);
-  }
-
-  function setGroupAccess(bytes32 key, bytes calldata access) external onlyAllowed(msg.sender) {
-    groupAccess[key] = access;
-    emit GroupAccessChanged(key, access);
   }
 
   function getLastEhrDocByType(bytes32 ehrId, DocType docType) public view returns(DocumentMeta memory) {
@@ -183,17 +161,5 @@ contract EhrIndexer is Ownable, Multicall {
     require(docMeta.timestamp != 0, "NFD");
 
     return docMeta;
-  }
-
-  function userAdd(address userAddr, bytes32 id, Role role, bytes calldata pwdHash) external onlyAllowed(msg.sender) {
-    users[userAddr].id = id;
-    users[userAddr].pwdHash = pwdHash;
-    users[userAddr].role = role;
-    users[userAddr].isUser = true;
-  }
-
-  function getUserPasswordHash(address userAddr) public view returns (bytes memory) {
-    if (!users[userAddr].isUser) revert("NFD");
-    return users[userAddr].pwdHash;
   }
 }

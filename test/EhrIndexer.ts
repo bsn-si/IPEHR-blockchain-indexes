@@ -6,7 +6,15 @@ import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/dist/src/signer-wit
 
 describe("EhrIndexer", function () {
   async function deployIndexerFixture() {
-    const Indexer = await ethers.getContractFactory("EhrIndexer");
+    const lib = await ethers.getContractFactory("SignChecker");
+    const Lib = await lib.deploy();
+    await Lib.deployed();
+
+    const Indexer = await ethers.getContractFactory("EhrIndexer", {
+      libraries: {
+        SignChecker: Lib.address,
+      },
+    });
     const [owner, otherAddress] = await ethers.getSigners();
 
     const indexer = await Indexer.deploy();
@@ -39,7 +47,7 @@ describe("EhrIndexer", function () {
     } else {
       await contract.addEhrDoc(ehrId, Object.values(ehrDoc));
     }
-    return { ehrId, ehrDoc }
+    return { ehrId, ehrDoc };
   }
 
   it("Should add address to allowed", async function () {
@@ -228,13 +236,33 @@ describe("EhrIndexer", function () {
 
     await indexer.setAllowed(otherAddress.address, true);
 
+    const payload = ethers.utils.defaultAbiCoder.encode(
+      ["string", "bytes32", "uint256", "bytes", "uint"],
+      [
+        "userAdd",
+        ethers.utils.formatBytes32String("userId"),
+        1,
+        ethers.utils.hexlify(0x010101),
+        1893272400000,
+      ]
+    );
+
+    const payloadHash = ethers.utils.keccak256(payload);
+
+    const signature = await owner.signMessage(
+      ethers.utils.arrayify(payloadHash)
+    );
+
     await indexer
       .connect(otherAddress)
       .userAdd(
         owner.address,
         ethers.utils.formatBytes32String("userId"),
         1,
-        ethers.utils.hexlify(0x010101)
+        ethers.utils.hexlify(0x010101),
+        1893272400000,
+        owner.address,
+        signature
       );
 
     const pwdHash = await indexer.getUserPasswordHash(owner.address);
