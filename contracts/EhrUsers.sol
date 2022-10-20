@@ -4,13 +4,7 @@ import "./SignChecker.sol";
 
 contract EhrUsers is EhrRestrictable {
     enum Role { Patient, Doctor }
-    enum AccessLevel { Owner, Admin, Read }
-
-  struct Access {
-    AccessLevel level;
-    bytes       keyEncrypted;
-    bool        isUser;
-  }
+    enum AccessLevel { NoAccess, Owner, Admin, Read }
 
   struct User {
     bytes32   id;
@@ -18,18 +12,21 @@ contract EhrUsers is EhrRestrictable {
     Role      role;
     bytes32[] groups;
     bytes     pwdHash;
-    bool      isUser;
   }
 
   struct UserGroup {
-    bytes32   groupID;
-    string    description;
-    bool      isGroup;
-    mapping(address => Access) members;
+    bytes    description;
+    mapping(address => AccessLevel) members;
   }
 
+  struct Access {
+    AccessLevel   level;
+    bytes       keyEncrypted;
+}
+
   mapping (address => User) users;
-  mapping(bytes32 => UserGroup) userGroups;
+  mapping (bytes32 => UserGroup) userGroups;
+  mapping (bytes32 => Access) public groupAccess;
 
   function userAdd(address userAddr, bytes32 id, Role role, bytes calldata pwdHash, uint deadline, address signer, bytes memory signature) external
     onlyAllowed(msg.sender) beforeDeadline(deadline) {
@@ -38,32 +35,42 @@ contract EhrUsers is EhrRestrictable {
     users[userAddr].id = id;
     users[userAddr].pwdHash = pwdHash;
     users[userAddr].role = role;
-    users[userAddr].isUser = true;
   }
 
   function getUserPasswordHash(address userAddr) public view returns (bytes memory) {
-    if (!users[userAddr].isUser) revert("NFD");
+    if (users[userAddr].id == bytes32(0)) revert("NFD");
     return users[userAddr].pwdHash;
   }
 
-  function groupCreate(bytes32 groupID, string calldata description, uint deadline, address signer, bytes calldata signature) external
+  function groupCreate(bytes32 groupID, bytes calldata description, uint deadline, address signer, bytes calldata signature) external
     onlyAllowed(msg.sender) beforeDeadline(deadline) {
-    require(userGroups[groupID].isGroup == true, "AEX");
-    userGroups[groupID].isGroup = true;
+    bytes32 payloadHash = keccak256(abi.encode("groupCreate", groupID, description, deadline));
+    require(SignChecker.signCheck(payloadHash, signer, signature), "DND");
+    require(userGroups[groupID].description.length == 0, "AEX");
     userGroups[groupID].description = description;
-    userGroups[groupID].members[signer].level = AccessLevel.Owner;
+    userGroups[groupID].members[signer] = AccessLevel.Owner;
   }
 
-  function groupAddUser(bytes32 groupID, address addingUserAddr, address signer, bytes calldata signature) external beforeDeadline(block.timestamp) {
-    require(userGroups[groupID].members[signer].level == AccessLevel.Owner ||
-      userGroups[groupID].members[signer].level == AccessLevel.Admin, "DND");
-    userGroups[groupID].members[addingUserAddr].level = AccessLevel.Read;
-    userGroups[groupID].members[addingUserAddr].isUser = true;
+  function groupAddUser(bytes32 groupID, address addingUserAddr, AccessLevel level, bytes calldata keyEncrypted, address signer, bytes calldata signature) external beforeDeadline(block.timestamp) {
+    bytes32 payloadHash = keccak256(abi.encode("groupAddUser", groupID, addingUserAddr, level, keyEncrypted));
+    require(SignChecker.signCheck(payloadHash, signer, signature), "DND");
+    require(userGroups[groupID].members[signer] == AccessLevel.Owner ||
+      userGroups[groupID].members[signer] == AccessLevel.Admin, "DND");
+    require(users[addingUserAddr].id.length > 0, "NFD");
+    userGroups[groupID].members[addingUserAddr] = level;
+    groupAccess[keccak256(abi.encode(users[addingUserAddr].id, groupID))].level = level;
+    groupAccess[keccak256(abi.encode(users[addingUserAddr].id, groupID))].keyEncrypted = keyEncrypted;
   }
 
   function groupRemoveUser(bytes32 groupID, address removingUserAddr, address signer, bytes calldata signature) beforeDeadline(block.timestamp) external {
-    require(userGroups[groupID].members[signer].level == AccessLevel.Owner ||
-      userGroups[groupID].members[signer].level == AccessLevel.Admin, "DND");
-      userGroups[groupID].members[removingUserAddr].isUser = false;
+    bytes32 payloadHash = keccak256(abi.encode("groupRemoveUser", groupID, removingUserAddr));
+    require(SignChecker.signCheck(payloadHash, signer, signature), "DND");
+    require(userGroups[groupID].members[signer] == AccessLevel.Owner ||
+      userGroups[groupID].members[signer] == AccessLevel.Admin, "DND");
+    require(users[removingUserAddr].id.length > 0, "NFD");
+    users[removingUserAddr].id = bytes32(0);
+    userGroups[groupID].members[removingUserAddr] = AccessLevel.NoAccess;
+    groupAccess[keccak256(abi.encode(users[removingUserAddr].id, groupID))].level = AccessLevel.NoAccess;
+    groupAccess[keccak256(abi.encode(users[removingUserAddr].id, groupID))].keyEncrypted = bytes("0");
   }
 }

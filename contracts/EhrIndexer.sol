@@ -59,7 +59,6 @@ contract EhrIndexer is Ownable, Multicall, EhrRestrictable, EhrUsers {
   mapping (bytes32  => bytes32) public ehrUsers; // userId -> EHRid
   mapping (bytes32  => bytes32) public ehrSubject;  // subjectKey -> ehr_id
   mapping (bytes32  => bytes) public docAccess;
-  mapping (bytes32  => bytes) public groupAccess;
 
   event EhrSubjectSet(bytes32 subjectKey, bytes32  ehrId);
   event EhrDocAdded(bytes32 ehrId, bytes CID);
@@ -104,11 +103,6 @@ contract EhrIndexer is Ownable, Multicall, EhrRestrictable, EhrUsers {
   function setDocAccess(bytes32 key, bytes calldata access) external onlyAllowed(msg.sender) {
     docAccess[key] = access;
     emit DocAccessChanged(key, access);
-  }
-
-  function setGroupAccess(bytes32 key, bytes calldata access) external onlyAllowed(msg.sender) {
-    groupAccess[key] = access;
-    emit GroupAccessChanged(key, access);
   }
 
   function getLastEhrDocByType(bytes32 ehrId, DocType docType) public view returns(DocumentMeta memory) {
