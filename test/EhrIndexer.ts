@@ -179,7 +179,7 @@ describe("EhrIndexer", function () {
 
     await indexer.setAllowed(otherAddress.address, true);
 
-    await addEhrDoc(indexer, otherAddress)
+    await addEhrDoc(indexer, otherAddress);
 
     const doc = await indexer.getLastEhrDocByType(
       ethers.utils.formatBytes32String("ehrId"),
@@ -203,7 +203,7 @@ describe("EhrIndexer", function () {
 
     const doc = await indexer.ehrDocs(ehrId, ehrDoc.docType, 0);
 
-    expect(doc.status).to.equal(1)
+    expect(doc.status).to.equal(1);
   });
 
   it("Should get ehrDoc by version", async function () {

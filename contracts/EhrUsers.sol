@@ -34,9 +34,9 @@ contract EhrUsers is EhrRestrictable {
     require(SignChecker.signCheck(payloadHash, signer, signature), "DND");
     users[userAddr] = User({
         id: id, 
-        systemID: bytes32(0), 
+        systemID: bytes32(0),
         role: role, 
-        groups: new bytes32[](0), 
+        groups: new bytes32[](0),
         pwdHash: pwdHash 
     });
   }
