@@ -28,13 +28,13 @@ contract EhrUsers is EhrRestrictable {
   mapping (bytes32 => UserGroup) public userGroups;
   mapping (bytes32 => Access) public groupAccess;
 
-  function userAdd(address userAddr, bytes32 id, Role role, bytes calldata pwdHash, uint deadline, address signer, bytes memory signature) external
-    onlyAllowed(msg.sender) beforeDeadline(deadline) {
-    bytes32 payloadHash = keccak256(abi.encode("userAdd", userAddr, id, role, pwdHash, deadline));
-    require(SignChecker.signCheck(payloadHash, signer, signature), "DND");
+  function userAdd(address userAddr, bytes32 id, bytes32 systemID, Role role, bytes calldata pwdHash, uint nonce, address signer, bytes memory signature) external
+    onlyAllowed(msg.sender) checkNonce(signer, nonce) {
+    bytes32 payloadHash = keccak256(abi.encode("userAdd", userAddr, id, systemID, role, pwdHash, nonce));
+    require(SignChecker.signCheck(payloadHash, signer, signature), "DNY");
     users[userAddr] = User({
         id: id, 
-        systemID: bytes32(0),
+        systemID: systemID,
         role: role, 
         groups: new bytes32[](0),
         pwdHash: pwdHash 
@@ -46,21 +46,21 @@ contract EhrUsers is EhrRestrictable {
     return users[userAddr].pwdHash;
   }
 
-  function groupCreate(bytes32 groupID, bytes calldata description, uint deadline, address signer, bytes calldata signature) external
-    onlyAllowed(msg.sender) beforeDeadline(deadline) {
-    bytes32 payloadHash = keccak256(abi.encode("groupCreate", groupID, description, deadline));
-    require(SignChecker.signCheck(payloadHash, signer, signature), "DND");
+  function groupCreate(bytes32 groupID, bytes calldata description, uint nonce, address signer, bytes calldata signature) external
+    onlyAllowed(msg.sender) checkNonce(signer, nonce) {
+    bytes32 payloadHash = keccak256(abi.encode("groupCreate", groupID, description, nonce));
+    require(SignChecker.signCheck(payloadHash, signer, signature), "DNY");
     require(userGroups[groupID].description.length == 0, "AEX");
     userGroups[groupID].description = description;
     userGroups[groupID].members[signer] = AccessLevel.Owner;
   }
 
-  function groupAddUser(bytes32 groupID, address addingUserAddr, AccessLevel level, bytes calldata keyEncrypted, uint deadline, address signer, bytes calldata signature)
-    external beforeDeadline(deadline) {
-    bytes32 payloadHash = keccak256(abi.encode("groupAddUser", groupID, addingUserAddr, level, keyEncrypted, deadline));
-    require(SignChecker.signCheck(payloadHash, signer, signature), "DND");
+  function groupAddUser(bytes32 groupID, address addingUserAddr, AccessLevel level, bytes calldata keyEncrypted, uint nonce, address signer, bytes calldata signature)
+    external checkNonce(signer, nonce) {
+    bytes32 payloadHash = keccak256(abi.encode("groupAddUser", groupID, addingUserAddr, level, keyEncrypted, nonce));
+    require(SignChecker.signCheck(payloadHash, signer, signature), "DNY");
     require(userGroups[groupID].members[signer] == AccessLevel.Owner ||
-      userGroups[groupID].members[signer] == AccessLevel.Admin, "DND");
+      userGroups[groupID].members[signer] == AccessLevel.Admin, "DNY");
     require(users[addingUserAddr].id.length > 0, "NFD");
     userGroups[groupID].members[addingUserAddr] = level;
     groupAccess[keccak256(abi.encode(users[addingUserAddr].id, groupID))] = Access({
@@ -69,12 +69,12 @@ contract EhrUsers is EhrRestrictable {
     });
   }
 
-  function groupRemoveUser(bytes32 groupID, address removingUserAddr, uint deadline, address signer, bytes calldata signature)
-    external beforeDeadline(deadline) {
-    bytes32 payloadHash = keccak256(abi.encode("groupRemoveUser", groupID, removingUserAddr, deadline));
-    require(SignChecker.signCheck(payloadHash, signer, signature), "DND");
+  function groupRemoveUser(bytes32 groupID, address removingUserAddr, uint nonce, address signer, bytes calldata signature)
+    external checkNonce(signer, nonce) {
+    bytes32 payloadHash = keccak256(abi.encode("groupRemoveUser", groupID, removingUserAddr, nonce));
+    require(SignChecker.signCheck(payloadHash, signer, signature), "DNY");
     require(userGroups[groupID].members[signer] == AccessLevel.Owner ||
-      userGroups[groupID].members[signer] == AccessLevel.Admin, "DND");
+      userGroups[groupID].members[signer] == AccessLevel.Admin, "DNY");
     require(users[removingUserAddr].id.length > 0, "NFD");
     userGroups[groupID].members[removingUserAddr] = AccessLevel.NoAccess;
     groupAccess[keccak256(abi.encode(users[removingUserAddr].id, groupID))] = Access({
@@ -83,3 +83,4 @@ contract EhrUsers is EhrRestrictable {
     });
   }
 }
+

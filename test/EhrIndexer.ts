@@ -5,7 +5,7 @@ import { Contract } from "ethers";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/dist/src/signer-with-address";
 
 const methodHashTypes: Record<string, any[]> = {
-  userAdd: ["string", "address", "bytes32", "uint256", "bytes", "uint"],
+  userAdd: ["string", "address", "bytes32", "bytes32", "uint256", "bytes", "uint"],
   groupCreate: ["string", "bytes32", "bytes", "uint"],
   groupAddUser: ["string", "bytes32", "address", "uint256", "bytes", "uint"],
   groupRemoveUser: ["string", "bytes32", "address", "uint"],
@@ -264,24 +264,14 @@ describe("EhrIndexer", function () {
 
     const USER_ID = ethers.utils.formatBytes32String("userId");
     const GROUP_ID = ethers.utils.formatBytes32String("groupId");
+    const SYSTEM_ID = ethers.utils.formatBytes32String("systemID");
+    const Role = 1;
 
     const methodArguments = {
-      userAdd: [
-        owner.address,
-        USER_ID,
-        1,
-        ethers.utils.hexlify(0x010101),
-        1893272400000,
-      ],
-      groupCreate: [GROUP_ID, ethers.utils.hexlify(0x010101), 1893272400000],
-      groupAddUser: [
-        GROUP_ID,
-        owner.address,
-        1,
-        ethers.utils.hexlify(0x010101),
-        1893272400000,
-      ],
-      groupRemoveUser: [GROUP_ID, owner.address, 1893272400000],
+      userAdd: [owner.address, USER_ID, SYSTEM_ID, Role, ethers.utils.hexlify(0x010101), 1],
+      groupCreate: [GROUP_ID, ethers.utils.hexlify(0x010101), 2],
+      groupAddUser: [GROUP_ID, owner.address, 1, ethers.utils.hexlify(0x010101), 3],
+      groupRemoveUser: [GROUP_ID, owner.address, 4],
     };
 
     const methodSignatures = {
