@@ -28,10 +28,22 @@ contract EhrUsers is EhrRestrictable {
   mapping (bytes32 => UserGroup) public userGroups;
   mapping (bytes32 => Access) public groupAccess;
 
-  function userAdd(address userAddr, bytes32 id, bytes32 systemID, Role role, bytes calldata pwdHash, uint nonce, address signer, bytes memory signature) external
-    onlyAllowed(msg.sender) checkNonce(signer, nonce) {
+  function userAdd(
+    address userAddr, 
+    bytes32 id, 
+    bytes32 systemID, 
+    Role role, 
+    bytes calldata pwdHash, 
+    uint nonce, 
+    address signer, 
+    bytes memory signature
+  ) external onlyAllowed(msg.sender) checkNonce(signer, nonce) {
+
+    require(users[userAddr].id == bytes32(0), "AEX");
+
     bytes32 payloadHash = keccak256(abi.encode("userAdd", userAddr, id, systemID, role, pwdHash, nonce));
     require(SignChecker.signCheck(payloadHash, signer, signature), "DNY");
+
     users[userAddr] = User({
         id: id, 
         systemID: systemID,
@@ -39,10 +51,11 @@ contract EhrUsers is EhrRestrictable {
         groups: new bytes32[](0),
         pwdHash: pwdHash 
     });
+
   }
 
   function getUserPasswordHash(address userAddr) public view returns (bytes memory) {
-    require(users[userAddr].id.length > 0, "NFD");
+    require(users[userAddr].id != bytes32(0), "NFD");
     return users[userAddr].pwdHash;
   }
 
