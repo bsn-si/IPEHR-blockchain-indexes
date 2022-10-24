@@ -16,6 +16,7 @@ contract EhrIndexer is Ownable, Multicall, EhrRestrictable, EhrUsers {
     DND - access denied
     TMT - timeout
     NNC - wrong nonce
+    SIG - invalid signature
   */
 
   enum DocType { Ehr, EhrAccess, EhrStatus , Composition }

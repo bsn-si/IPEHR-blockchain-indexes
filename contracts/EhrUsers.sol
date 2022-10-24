@@ -39,10 +39,12 @@ contract EhrUsers is EhrRestrictable {
     bytes memory signature
   ) external onlyAllowed(msg.sender) checkNonce(signer, nonce) {
 
+    // Checking user existence
     require(users[userAddr].id == bytes32(0), "AEX");
 
+    // Signature verification
     bytes32 payloadHash = keccak256(abi.encode("userAdd", userAddr, id, systemID, role, pwdHash, nonce));
-    require(SignChecker.signCheck(payloadHash, signer, signature), "DNY");
+    require(SignChecker.signCheck(payloadHash, signer, signature), "SIG");
 
     users[userAddr] = User({
         id: id, 
@@ -51,7 +53,6 @@ contract EhrUsers is EhrRestrictable {
         groups: new bytes32[](0),
         pwdHash: pwdHash 
     });
-
   }
 
   function getUserPasswordHash(address userAddr) public view returns (bytes memory) {
@@ -59,37 +60,78 @@ contract EhrUsers is EhrRestrictable {
     return users[userAddr].pwdHash;
   }
 
-  function groupCreate(bytes32 groupID, bytes calldata description, uint nonce, address signer, bytes calldata signature) external
-    onlyAllowed(msg.sender) checkNonce(signer, nonce) {
+  function groupCreate(
+      bytes32 groupID, 
+      bytes calldata description, 
+      uint nonce, 
+      address signer, 
+      bytes calldata signature
+  ) external onlyAllowed(msg.sender) checkNonce(signer, nonce) {
+
+    // Signature verification
     bytes32 payloadHash = keccak256(abi.encode("groupCreate", groupID, description, nonce));
-    require(SignChecker.signCheck(payloadHash, signer, signature), "DNY");
+    require(SignChecker.signCheck(payloadHash, signer, signature), "SIG");
+
     require(userGroups[groupID].description.length == 0, "AEX");
+
     userGroups[groupID].description = description;
     userGroups[groupID].members[signer] = AccessLevel.Owner;
   }
 
-  function groupAddUser(bytes32 groupID, address addingUserAddr, AccessLevel level, bytes calldata keyEncrypted, uint nonce, address signer, bytes calldata signature)
-    external checkNonce(signer, nonce) {
+  function groupAddUser(
+      bytes32 groupID, 
+      address addingUserAddr, 
+      AccessLevel level, 
+      bytes calldata keyEncrypted, 
+      uint nonce, 
+      address signer, 
+      bytes calldata signature
+  ) external checkNonce(signer, nonce) {
+
+    // Checking user existence
+    require(users[addingUserAddr].id != bytes32(0), "NFD");
+
+    // Signature verification
     bytes32 payloadHash = keccak256(abi.encode("groupAddUser", groupID, addingUserAddr, level, keyEncrypted, nonce));
-    require(SignChecker.signCheck(payloadHash, signer, signature), "DNY");
-    require(userGroups[groupID].members[signer] == AccessLevel.Owner ||
-      userGroups[groupID].members[signer] == AccessLevel.Admin, "DNY");
-    require(users[addingUserAddr].id.length > 0, "NFD");
+    require(SignChecker.signCheck(payloadHash, signer, signature), "SIG");
+
+    // Checking access rights
+    require(userGroups[groupID].members[signer] == AccessLevel.Owner || 
+        userGroups[groupID].members[signer] == AccessLevel.Admin, "DNY");
+
+    // Adding a user to a group
     userGroups[groupID].members[addingUserAddr] = level;
+
+    // Adding the group's secret key
     groupAccess[keccak256(abi.encode(users[addingUserAddr].id, groupID))] = Access({
         level: level,
         keyEncrypted: keyEncrypted
     });
   }
 
-  function groupRemoveUser(bytes32 groupID, address removingUserAddr, uint nonce, address signer, bytes calldata signature)
-    external checkNonce(signer, nonce) {
+  function groupRemoveUser(
+      bytes32 groupID, 
+      address removingUserAddr, 
+      uint nonce, 
+      address signer, 
+      bytes calldata signature
+  ) external checkNonce(signer, nonce) {
+
+    // Checking user existence
+    require(users[removingUserAddr].id != bytes32(0), "NFD");
+
+    // Signature verification
     bytes32 payloadHash = keccak256(abi.encode("groupRemoveUser", groupID, removingUserAddr, nonce));
-    require(SignChecker.signCheck(payloadHash, signer, signature), "DNY");
+    require(SignChecker.signCheck(payloadHash, signer, signature), "SIG");
+
+    // Checking access rights
     require(userGroups[groupID].members[signer] == AccessLevel.Owner ||
-      userGroups[groupID].members[signer] == AccessLevel.Admin, "DNY");
-    require(users[removingUserAddr].id.length > 0, "NFD");
+        userGroups[groupID].members[signer] == AccessLevel.Admin, "DNY");
+
+    // Removing a user from a group
     userGroups[groupID].members[removingUserAddr] = AccessLevel.NoAccess;
+
+    // Removing a group's access key
     groupAccess[keccak256(abi.encode(users[removingUserAddr].id, groupID))] = Access({
       level: AccessLevel.NoAccess,
       keyEncrypted: bytes("")
