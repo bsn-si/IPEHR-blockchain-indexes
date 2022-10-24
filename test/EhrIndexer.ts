@@ -4,6 +4,32 @@ import { loadFixture } from "@nomicfoundation/hardhat-network-helpers";
 import { Contract } from "ethers";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/dist/src/signer-with-address";
 
+const methodHashTypes: Record<string, any[]> = {
+  userAdd: ["string", "address", "bytes32", "bytes32", "uint256", "bytes", "uint"],
+  groupCreate: ["string", "bytes32", "bytes", "uint"],
+  groupAddUser: ["string", "bytes32", "address", "uint256", "bytes", "uint"],
+  groupRemoveUser: ["string", "bytes32", "address", "uint"],
+};
+
+const getSignedMessage = async (
+  _methodName: string,
+  _args: any[],
+  signer: SignerWithAddress
+) => {
+  const payload = ethers.utils.defaultAbiCoder.encode(
+    methodHashTypes[_methodName],
+    [_methodName, ..._args]
+  );
+
+  const payloadHash = ethers.utils.keccak256(payload);
+
+  const signature = await signer.signMessage(
+    ethers.utils.arrayify(payloadHash)
+  );
+
+  return signature;
+};
+
 describe("EhrIndexer", function () {
   async function deployIndexerFixture() {
     const lib = await ethers.getContractFactory("SignChecker");
@@ -153,7 +179,7 @@ describe("EhrIndexer", function () {
 
     await indexer.setAllowed(otherAddress.address, true);
 
-    await addEhrDoc(indexer, otherAddress)
+    await addEhrDoc(indexer, otherAddress);
 
     const doc = await indexer.getLastEhrDocByType(
       ethers.utils.formatBytes32String("ehrId"),
@@ -177,7 +203,7 @@ describe("EhrIndexer", function () {
 
     const doc = await indexer.ehrDocs(ehrId, ehrDoc.docType, 0);
 
-    expect(doc.status).to.equal(1)
+    expect(doc.status).to.equal(1);
   });
 
   it("Should get ehrDoc by version", async function () {
@@ -229,44 +255,103 @@ describe("EhrIndexer", function () {
     expect(doc.docUIDEncrypted).to.equal(ehrDoc.docUIDEncrypted);
   });
 
-  it("Should addUser", async function () {
+  it("Should addUser, create group and add user, remove user from group", async function () {
     const { indexer, otherAddress, owner } = await loadFixture(
       deployIndexerFixture
     );
 
     await indexer.setAllowed(otherAddress.address, true);
 
-    const payload = ethers.utils.defaultAbiCoder.encode(
-      ["string", "bytes32", "uint256", "bytes", "uint"],
-      [
+    const USER_ID = ethers.utils.formatBytes32String("userId");
+    const GROUP_ID = ethers.utils.formatBytes32String("groupId");
+    const SYSTEM_ID = ethers.utils.formatBytes32String("systemID");
+    const Role = 1;
+
+    const methodArguments = {
+      userAdd: [owner.address, USER_ID, SYSTEM_ID, Role, ethers.utils.hexlify(0x010101), 1],
+      groupCreate: [GROUP_ID, ethers.utils.hexlify(0x010101), 2],
+      groupAddUser: [GROUP_ID, owner.address, 1, ethers.utils.hexlify(0x010101), 3],
+      groupRemoveUser: [GROUP_ID, owner.address, 4],
+    };
+
+    const methodSignatures = {
+      userAdd: await getSignedMessage(
         "userAdd",
-        ethers.utils.formatBytes32String("userId"),
-        1,
-        ethers.utils.hexlify(0x010101),
-        1893272400000,
-      ]
-    );
-
-    const payloadHash = ethers.utils.keccak256(payload);
-
-    const signature = await owner.signMessage(
-      ethers.utils.arrayify(payloadHash)
-    );
+        methodArguments.userAdd,
+        owner
+      ),
+      groupCreate: await getSignedMessage(
+        "groupCreate",
+        methodArguments.groupCreate,
+        owner
+      ),
+      groupAddUser: await getSignedMessage(
+        "groupAddUser",
+        methodArguments.groupAddUser,
+        owner
+      ),
+      groupRemoveUser: await getSignedMessage(
+        "groupRemoveUser",
+        methodArguments.groupRemoveUser,
+        owner
+      ),
+    };
 
     await indexer
       .connect(otherAddress)
       .userAdd(
+        ...methodArguments.userAdd,
         owner.address,
-        ethers.utils.formatBytes32String("userId"),
-        1,
-        ethers.utils.hexlify(0x010101),
-        1893272400000,
-        owner.address,
-        signature
+        methodSignatures.userAdd
       );
 
     const pwdHash = await indexer.getUserPasswordHash(owner.address);
 
     expect(pwdHash).to.equal(ethers.utils.hexlify(0x010101));
+
+    await indexer
+      .connect(otherAddress)
+      .groupCreate(
+        ...methodArguments.groupCreate,
+        owner.address,
+        methodSignatures.groupCreate
+      );
+
+    const group = await indexer.userGroups(GROUP_ID);
+
+    expect(group).to.equal(ethers.utils.hexlify(0x010101));
+
+    await indexer
+      .connect(otherAddress)
+      .groupAddUser(
+        ...methodArguments.groupAddUser,
+        owner.address,
+        methodSignatures.groupAddUser
+      );
+
+    const groupAccessPayload = ethers.utils.defaultAbiCoder.encode(
+      ["bytes32", "bytes32"],
+      [USER_ID, GROUP_ID]
+    );
+
+    let groupAccess = await indexer.groupAccess(
+      ethers.utils.keccak256(groupAccessPayload)
+    );
+
+    expect(groupAccess.keyEncrypted).to.equal(ethers.utils.hexlify(0x010101));
+
+    await indexer
+      .connect(otherAddress)
+      .groupRemoveUser(
+        ...methodArguments.groupRemoveUser,
+        owner.address,
+        methodSignatures.groupRemoveUser
+      );
+
+    groupAccess = await indexer.groupAccess(
+      ethers.utils.keccak256(groupAccessPayload)
+    );
+
+    expect(groupAccess.keyEncrypted).to.equal("0x");
   });
 });
