@@ -150,5 +150,23 @@ contract EhrUsers is EhrRestrictable {
 
     //TODO Delete groupID from the list of user groups
   }
+
+  function setGroupAccess(
+      bytes32 key, 
+      Access calldata access,
+      uint nonce,
+      address signer, 
+      bytes calldata signature
+  ) external checkNonce(signer, nonce) {
+
+    // Checking user existence
+    require(users[signer].id != bytes32(0), "NFD");
+
+    // Signature verification
+    bytes32 payloadHash = keccak256(abi.encode("setGroupAccess", key, access, nonce));
+    require(SignChecker.signCheck(payloadHash, signer, signature), "SIG");
+
+    groupAccess[key] = access;
+  }
 }
 
