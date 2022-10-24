@@ -68,14 +68,22 @@ contract EhrUsers is EhrRestrictable {
       bytes calldata signature
   ) external onlyAllowed(msg.sender) checkNonce(signer, nonce) {
 
+    // Checking user existence
+    require(users[signer].id != bytes32(0), "NFD");
+
     // Signature verification
     bytes32 payloadHash = keccak256(abi.encode("groupCreate", groupID, description, nonce));
     require(SignChecker.signCheck(payloadHash, signer, signature), "SIG");
 
+    // Checking group absence
     require(userGroups[groupID].description.length == 0, "AEX");
 
+    // Creating a group
     userGroups[groupID].description = description;
     userGroups[groupID].members[signer] = AccessLevel.Owner;
+
+    // Adding a groupID to a user's group list
+    users[signer].groups.push(groupID);
   }
 
   function groupAddUser(
@@ -107,6 +115,9 @@ contract EhrUsers is EhrRestrictable {
         level: level,
         keyEncrypted: keyEncrypted
     });
+
+    // Adding a groupID to a user's group list
+    users[addingUserAddr].groups.push(groupID);
   }
 
   function groupRemoveUser(
@@ -136,6 +147,8 @@ contract EhrUsers is EhrRestrictable {
       level: AccessLevel.NoAccess,
       keyEncrypted: bytes("")
     });
+
+    //TODO Delete groupID from the list of user groups
   }
 }
 
