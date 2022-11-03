@@ -33,6 +33,12 @@ const config: HardhatUserConfig = {
     },
   },
   networks: {
+    hardhat: {
+      mining: {
+        auto: true,
+        interval: 0
+      },
+    },
     ropsten: {
       url: process.env.ROPSTEN_URL || "",
       accounts:

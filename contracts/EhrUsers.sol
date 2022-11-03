@@ -1,10 +1,12 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 pragma solidity ^0.8.4;
+
 import "./EhrRestrictable.sol";
+import "./EhrAccess.sol";
 import "./SignChecker.sol";
 
-contract EhrUsers is EhrRestrictable {
+contract EhrUsers is EhrRestrictable, EhrAccess {
     enum Role { Patient, Doctor }
-    enum AccessLevel { NoAccess, Owner, Admin, Read }
 
   struct User {
     bytes32   id;
@@ -19,15 +21,28 @@ contract EhrUsers is EhrRestrictable {
     mapping(address => AccessLevel) members;
   }
 
-  struct Access {
-    AccessLevel   level;
-    bytes       keyEncrypted;
-}
-
   mapping (address => User) public users;
+  mapping (bytes32  => bytes32) public ehrUsers; // userId -> EHRid
   mapping (bytes32 => UserGroup) public userGroups;
-  mapping (bytes32 => Access) public groupAccess;
 
+  ///
+  function setEhrUser(
+    bytes32 userId, 
+    bytes32 ehrId,
+    uint nonce, 
+    address signer, 
+    bytes memory signature
+  ) 
+    external onlyAllowed(msg.sender) checkNonce(signer, nonce)
+  {
+    // Signature verification
+    bytes32 payloadHash = keccak256(abi.encode("setEhrUser", userId, ehrId, nonce));
+    require(SignChecker.signCheck(payloadHash, signer, signature), "SIG");
+
+    ehrUsers[userId] = ehrId;
+  }
+
+  ///
   function userAdd(
     address userAddr, 
     bytes32 id, 
@@ -111,7 +126,7 @@ contract EhrUsers is EhrRestrictable {
     userGroups[groupID].members[addingUserAddr] = level;
 
     // Adding the group's secret key
-    groupAccess[keccak256(abi.encode(users[addingUserAddr].id, groupID))] = Access({
+    accessStore[keccak256(abi.encode(users[addingUserAddr].id, groupID))] = Access({
         level: level,
         keyEncrypted: keyEncrypted
     });
@@ -143,30 +158,12 @@ contract EhrUsers is EhrRestrictable {
     userGroups[groupID].members[removingUserAddr] = AccessLevel.NoAccess;
 
     // Removing a group's access key
-    groupAccess[keccak256(abi.encode(users[removingUserAddr].id, groupID))] = Access({
+    accessStore[keccak256(abi.encode(users[removingUserAddr].id, groupID))] = Access({
       level: AccessLevel.NoAccess,
       keyEncrypted: bytes("")
     });
 
     //TODO Delete groupID from the list of user groups
-  }
-
-  function setGroupAccess(
-      bytes32 key, 
-      Access calldata access,
-      uint nonce,
-      address signer, 
-      bytes calldata signature
-  ) external checkNonce(signer, nonce) {
-
-    // Checking user existence
-    require(users[signer].id != bytes32(0), "NFD");
-
-    // Signature verification
-    bytes32 payloadHash = keccak256(abi.encode("setGroupAccess", key, access, nonce));
-    require(SignChecker.signCheck(payloadHash, signer, signature), "SIG");
-
-    groupAccess[key] = access;
   }
 }
 

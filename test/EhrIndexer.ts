@@ -23,6 +23,10 @@ const getSignedMessage = async (
 
   const payloadHash = ethers.utils.keccak256(payload);
 
+  console.log("methodName:", _methodName)
+  console.log("payload:", payload)
+  console.log("payloadHash:", payloadHash)
+
   const signature = await signer.signMessage(
     ethers.utils.arrayify(payloadHash)
   );
@@ -353,5 +357,14 @@ describe("EhrIndexer", function () {
     );
 
     expect(groupAccess.keyEncrypted).to.equal("0x");
+
+    const test = ethers.utils.defaultAbiCoder.encode(
+      ["string", "bytes32", "tuple(uint8, bytes)", "uint256"],
+      ["setGroupAccess", USER_ID, [1, ethers.utils.hexlify(0x010203)], 1]
+    );
+    console.log("USER_ID:", USER_ID);
+    console.log(test);
+    const payloadHash = ethers.utils.keccak256(test);
+    console.log(payloadHash);
   });
 });
