@@ -24,7 +24,7 @@ task("accounts", "Prints the list of accounts", async (taskArgs, hre) => {
 
 const config: HardhatUserConfig = {
   solidity: {
-    version: "0.8.4",
+    version: "0.8.17",
     settings: {
       optimizer: {
         enabled: true,
@@ -34,9 +34,10 @@ const config: HardhatUserConfig = {
   },
   networks: {
     hardhat: {
+      //allowUnlimitedContractSize: true,
       mining: {
         auto: true,
-        interval: 0
+        interval: 0,
       },
     },
     ropsten: {

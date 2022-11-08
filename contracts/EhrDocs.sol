@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
-pragma solidity ^0.8.4;
+pragma solidity ^0.8.17;
 
-import "./EhrAccess.sol";
-import "./EhrUsers.sol";
+import "./Access.sol";
+import "./Users.sol";
 
-contract EhrDocs is EhrAccess, EhrUsers {
+contract EhrDocs is Access, Users {
 
     enum DocType { Ehr, EhrAccess, EhrStatus , Composition }
     enum DocStatus { Active, Deleted }
@@ -42,51 +42,58 @@ contract EhrDocs is EhrAccess, EhrUsers {
 
         ehrSubject[subjectKey] = ehrId;
     }
+
+    struct AddEhrDocParams {
+        bytes32 ehrId;
+        DocumentMeta docMeta;
+        bytes keyEncr;
+        bytes CIDEncr;
+        uint nonce;
+        address signer; 
+        bytes signature;
+    }
     
     ///
     function addEhrDoc(
-        bytes32 ehrId, 
-        DocumentMeta calldata docMeta,
-        bytes calldata keyEncrypted,
-        uint nonce, 
-        address signer, 
-        bytes calldata signature
+        AddEhrDocParams calldata p
     ) 
-        external onlyAllowed(msg.sender) checkNonce(signer, nonce)
+        external onlyAllowed(msg.sender) checkNonce(p.signer, p.nonce)
     {
         // Signature verification
-        bytes32 payloadHash = keccak256(abi.encode("addEhrDoc", ehrId, docMeta, keyEncrypted, nonce));
-        require(SignChecker.signCheck(payloadHash, signer, signature), "SIG");
-        
-        require(cids[keccak256(abi.encode(docMeta.CID))] == false, "AEX");
-        require(docMeta.isLast == true, "LST");
-        require(users[signer].id != bytes32(0), "NFD");
+        bytes32 payloadHash = keccak256(abi.encode("addEhrDoc", p.ehrId, p.docMeta, p.keyEncr, p.CIDEncr, p.nonce));
+        require(SignChecker.signCheck(payloadHash, p.signer, p.signature), "SIG");
 
-        uint i;
-        if (docMeta.docType == DocType.Ehr || docMeta.docType == DocType.EhrStatus) {
-            for (i = 0; i < ehrDocs[ehrId][docMeta.docType].length; i++) {
-                ehrDocs[ehrId][docMeta.docType][i].isLast = false;
+        bytes32 CIDHash = keccak256(abi.encode(p.docMeta.CID));
+        require(cids[CIDHash] == false, "AEX");
+        cids[CIDHash] = true;
+
+        require(p.docMeta.isLast == true, "LST");
+        require(users[p.signer].id != bytes32(0), "NFD");
+
+        if (p.docMeta.docType == DocType.Ehr || p.docMeta.docType == DocType.EhrStatus) {
+            for (uint i = 0; i < ehrDocs[p.ehrId][p.docMeta.docType].length; i++) {
+                ehrDocs[p.ehrId][p.docMeta.docType][i].isLast = false;
             }
         }
 
-        if (docMeta.docType == DocType.Composition) {
-            for (i = 0; i < ehrDocs[ehrId][DocType.Composition].length; i++) {
-                if (ehrDocs[ehrId][DocType.Composition][i].docBaseUIDHash == docMeta.docBaseUIDHash) {
-                    ehrDocs[ehrId][DocType.Composition][i].isLast = false;
+        if (p.docMeta.docType == DocType.Composition) {
+            for (uint i = 0; i < ehrDocs[p.ehrId][DocType.Composition].length; i++) {
+                if (ehrDocs[p.ehrId][DocType.Composition][i].docBaseUIDHash == p.docMeta.docBaseUIDHash) {
+                    ehrDocs[p.ehrId][DocType.Composition][i].isLast = false;
                 }
             }
         }
 
-        ehrDocs[ehrId][docMeta.docType].push(docMeta);
+        ehrDocs[p.ehrId][p.docMeta.docType].push(p.docMeta);
 
-        cids[keccak256(abi.encode(docMeta.CID))] = true;
-
-        bytes32 accessID = keccak256(abi.encode(users[signer].id, docMeta.CID));
-
-        accessStore[accessID] = Access({
-            level: AccessLevel.Admin,
-            keyEncrypted: keyEncrypted
-        });
+        bytes32 accessID = keccak256(abi.encode(users[p.signer].id, AccessKind.Doc));
+        
+        accessStore[accessID].push(Object({
+            idHash: CIDHash,
+            idEncr: p.CIDEncr,
+            keyEncr: p.keyEncr,
+            level: AccessLevel.Admin
+        }));
     }
 
     ///
@@ -153,9 +160,9 @@ contract EhrDocs is EhrAccess, EhrUsers {
 
     ///
     function setDocAccess(
-        bytes32         accessID,
         bytes  calldata CID,
-        Access calldata access,
+        Object calldata accessObj,
+        address         userAddr,
         uint            nonce,
         address         signer,
         bytes calldata  signature
@@ -163,35 +170,29 @@ contract EhrDocs is EhrAccess, EhrUsers {
         external checkNonce(signer, nonce) 
     {    
         // Signature verification
-        bytes32 payloadHash = keccak256(abi.encode("setDocAccess", accessID, CID, access, nonce));
+        bytes32 payloadHash = keccak256(abi.encode("setDocAccess", CID, accessObj, userAddr, nonce));
         require(SignChecker.signCheck(payloadHash, signer, signature), "SIG");
+
+        User memory user = users[userAddr];
+        require(user.id != bytes32(0), "NFD");
+        require(users[signer].id != bytes32(0), "NFD");
 
         // Checking access rights
         {
             // Signer should be Owner or Admin of doc
-            User memory user = users[signer];
-            require(user.id != bytes32(0), "NFD");
-
-            AccessLevel signerLevel = accessStore[keccak256(abi.encode(user.id, CID))].level;
-            if (signerLevel == AccessLevel.NoAccess) {
-                for (uint i = 0; i < user.groups.length; i++) {
-                    signerLevel = accessStore[keccak256(abi.encode(user.groups[i], CID))].level;
-                    if (signerLevel != AccessLevel.NoAccess) {
-                        break;
-                    }
-                }
-            }
+            bytes32 CIDHash = keccak256(abi.encode(CID));
+            AccessLevel signerLevel = getUserAccessLevel(users[signer].id, AccessKind.Doc, CIDHash);
             require(signerLevel == AccessLevel.Owner || signerLevel == AccessLevel.Admin, "DND");
-            require(signerLevel == AccessLevel.Admin && accessStore[accessID].level != AccessLevel.Owner, "DND");
+            require(getUserAccessLevel(user.id, AccessKind.Doc, CIDHash) != AccessLevel.Owner, "DND");
         }
         
         // Request validation
-        if (access.level == AccessLevel.NoAccess) {
-            require(access.keyEncrypted.length == 0);
+        if (accessObj.level == AccessLevel.NoAccess) {
+            require(accessObj.keyEncr.length == 0 && accessObj.idEncr.length == 0, "E01");
         }
 
         // Set access
-        accessStore[accessID] = access;
+        accessStore[keccak256(abi.encode(user.id, AccessKind.Doc))].push(accessObj);
     }
 
     ///
@@ -214,4 +215,5 @@ contract EhrDocs is EhrAccess, EhrUsers {
         }
         revert("NFD");
     }
+
 }
