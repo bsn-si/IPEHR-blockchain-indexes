@@ -34,7 +34,7 @@ const config: HardhatUserConfig = {
   },
   networks: {
     hardhat: {
-      //allowUnlimitedContractSize: true,
+      allowUnlimitedContractSize: true,
       mining: {
         auto: true,
         interval: 0,
