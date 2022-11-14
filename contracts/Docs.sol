@@ -1,10 +1,9 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 pragma solidity ^0.8.17;
 
-import "./Access.sol";
 import "./Users.sol";
 
-contract EhrDocs is Access, Users {
+contract Docs is Users {
 
     enum DocType { Ehr, EhrAccess, EhrStatus , Composition }
     enum DocStatus { Active, Deleted }
@@ -30,15 +29,14 @@ contract EhrDocs is Access, Users {
     function setEhrSubject(
         bytes32 subjectKey, 
         bytes32 ehrId,
-        uint nonce, 
         address signer, 
         bytes calldata signature
     ) 
-        external onlyAllowed(msg.sender) checkNonce(signer, nonce)
+        external onlyAllowed(msg.sender)
     {
         // Signature verification
-        bytes32 payloadHash = keccak256(abi.encode("setEhrSubject", subjectKey, ehrId, nonce));
-        require(SignChecker.signCheck(payloadHash, signer, signature), "SIG");
+        bytes32 payloadHash = keccak256(abi.encode("setEhrSubject", subjectKey, ehrId));
+        require(signCheck(payloadHash, signer, signature), "SIG");
 
         ehrSubject[subjectKey] = ehrId;
     }
@@ -48,7 +46,6 @@ contract EhrDocs is Access, Users {
         DocumentMeta docMeta;
         bytes keyEncr;
         bytes CIDEncr;
-        uint nonce;
         address signer; 
         bytes signature;
     }
@@ -57,11 +54,11 @@ contract EhrDocs is Access, Users {
     function addEhrDoc(
         AddEhrDocParams calldata p
     ) 
-        external onlyAllowed(msg.sender) checkNonce(p.signer, p.nonce)
+        external onlyAllowed(msg.sender)
     {
         // Signature verification
-        bytes32 payloadHash = keccak256(abi.encode("addEhrDoc", p.ehrId, p.docMeta, p.keyEncr, p.CIDEncr, p.nonce));
-        require(SignChecker.signCheck(payloadHash, p.signer, p.signature), "SIG");
+        bytes32 payloadHash = keccak256(abi.encode("addEhrDoc", p.ehrId, p.docMeta, p.keyEncr, p.CIDEncr));
+        require(signCheck(payloadHash, p.signer, p.signature), "SIG");
 
         bytes32 CIDHash = keccak256(abi.encode(p.docMeta.CID));
         require(cids[CIDHash] == false, "AEX");
@@ -97,7 +94,12 @@ contract EhrDocs is Access, Users {
     }
 
     ///
-    function getEhrDocs(bytes32 ehrId, DocType docType) public view returns(DocumentMeta[] memory) {
+    function getEhrDocs(
+        bytes32 ehrId, 
+        DocType docType
+    ) 
+        public view returns(DocumentMeta[] memory) 
+    {
         return ehrDocs[ehrId][docType];
     }
 
@@ -147,7 +149,11 @@ contract EhrDocs is Access, Users {
     }
 
     ///
-    function getDocLastByBaseID(bytes32 ehrId, DocType docType, bytes32 docBaseUIDHash) 
+    function getDocLastByBaseID(
+        bytes32 ehrId, 
+        DocType docType, 
+        bytes32 docBaseUIDHash
+    ) 
         public view returns (DocumentMeta memory) 
     {
         for (uint i = 0; i < ehrDocs[ehrId][docType].length; i++) {
@@ -163,15 +169,14 @@ contract EhrDocs is Access, Users {
         bytes  calldata CID,
         Object calldata accessObj,
         address         userAddr,
-        uint            nonce,
         address         signer,
         bytes calldata  signature
     ) 
-        external checkNonce(signer, nonce) 
+        external
     {    
         // Signature verification
-        bytes32 payloadHash = keccak256(abi.encode("setDocAccess", CID, accessObj, userAddr, nonce));
-        require(SignChecker.signCheck(payloadHash, signer, signature), "SIG");
+        bytes32 payloadHash = keccak256(abi.encode("setDocAccess", CID, accessObj, userAddr));
+        require(signCheck(payloadHash, signer, signature), "SIG");
 
         User memory user = users[userAddr];
         require(user.id != bytes32(0), "NFD");
@@ -215,5 +220,4 @@ contract EhrDocs is Access, Users {
         }
         revert("NFD");
     }
-
 }

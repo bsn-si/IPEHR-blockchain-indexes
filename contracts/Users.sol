@@ -1,11 +1,9 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 pragma solidity ^0.8.17;
 
-import "./Restrictable.sol";
 import "./Access.sol";
-import "./SignChecker.sol";
 
-contract Users is Restrictable, Access {
+contract Users is Access {
   enum Role { Patient, Doctor }
 
   struct User {
@@ -29,15 +27,14 @@ contract Users is Restrictable, Access {
   function setEhrUser(
     bytes32 userId, 
     bytes32 ehrId,
-    uint nonce, 
     address signer, 
-    bytes memory signature
+    bytes calldata signature
   ) 
-    external onlyAllowed(msg.sender) checkNonce(signer, nonce)
+    external onlyAllowed(msg.sender)
   {
     // Signature verification
-    bytes32 payloadHash = keccak256(abi.encode("setEhrUser", userId, ehrId, nonce));
-    require(SignChecker.signCheck(payloadHash, signer, signature), "SIG");
+    bytes32 payloadHash = keccak256(abi.encode("setEhrUser", userId, ehrId));
+    require(signCheck(payloadHash, signer, signature), "SIG");
 
     ehrUsers[userId] = ehrId;
   }
@@ -49,17 +46,16 @@ contract Users is Restrictable, Access {
     bytes32 systemID, 
     Role role, 
     bytes calldata pwdHash, 
-    uint nonce, 
     address signer, 
-    bytes memory signature
-  ) external onlyAllowed(msg.sender) checkNonce(signer, nonce) {
+    bytes calldata signature
+  ) external onlyAllowed(msg.sender) {
 
     // Checking user existence
     require(users[userAddr].id == bytes32(0), "AEX");
 
     // Signature verification
-    bytes32 payloadHash = keccak256(abi.encode("userAdd", userAddr, id, systemID, role, pwdHash, nonce));
-    require(SignChecker.signCheck(payloadHash, signer, signature), "SIG");
+    bytes32 payloadHash = keccak256(abi.encode("userNew", userAddr, id, systemID, role, pwdHash));
+    require(signCheck(payloadHash, signer, signature), "SIG");
 
     users[userAddr] = User({
       id: id, 
@@ -67,11 +63,6 @@ contract Users is Restrictable, Access {
       role: role, 
       pwdHash: pwdHash
     });
-  }
-
-  function getUserPasswordHash(address userAddr) public view returns (bytes memory) {
-    require(users[userAddr].id != bytes32(0), "NFD");
-    return users[userAddr].pwdHash;
   }
 
   struct KeyValue {
@@ -84,21 +75,21 @@ contract Users is Restrictable, Access {
       bytes groupIdEncr;
       bytes groupKeyEncr;
       KeyValue[] params;
-      uint nonce;
       address signer;
       bytes signature;
   }
 
+  ///
   function userGroupCreate(
     UserGroupCreateParams calldata p
-  ) external onlyAllowed(msg.sender) checkNonce(p.signer, p.nonce) {
+  ) external onlyAllowed(msg.sender) {
 
     // Checking user existence
     require(users[p.signer].id != bytes32(0), "NFD");
 
     // Signature verification
-    bytes32 payloadHash = keccak256(abi.encode("userGroupCreate", p.groupIdHash, p.groupIdEncr, p.groupKeyEncr, p.params, p.nonce));
-    require(SignChecker.signCheck(payloadHash, p.signer, p.signature), "SIG");
+    bytes32 payloadHash = keccak256(abi.encode("userGroupCreate", p.groupIdHash, p.groupIdEncr, p.groupKeyEncr, p.params));
+    require(signCheck(payloadHash, p.signer, p.signature), "SIG");
 
     // Checking group absence
     require(userGroups[p.groupIdHash].membersCount == 0, "AEX");
@@ -126,20 +117,20 @@ contract Users is Restrictable, Access {
     AccessLevel level;
     bytes idEncr;
     bytes keyEncr;
-    uint nonce;
     address signer;
     bytes signature;
   }
 
+  ///
   function groupAddUser(GroupAddUserParams calldata p) 
-    external checkNonce(p.signer, p.nonce) 
+    external
   {
     // Checking user existence
     require(users[p.addingUserAddr].id != bytes32(0), "NFD");
 
     // Signature verification
-    bytes32 payloadHash = keccak256(abi.encode("groupAddUser", p.groupIdHash, p.addingUserAddr, p.level, p.idEncr, p.keyEncr, p.nonce));
-    require(SignChecker.signCheck(payloadHash, p.signer, p.signature), "SIG");
+    bytes32 payloadHash = keccak256(abi.encode("groupAddUser", p.groupIdHash, p.addingUserAddr, p.level, p.idEncr, p.keyEncr));
+    require(signCheck(payloadHash, p.signer, p.signature), "SIG");
 
     // Checking user not in group already
     // TODO
@@ -161,20 +152,20 @@ contract Users is Restrictable, Access {
     }));
   }
 
+  ///
   function groupRemoveUser(
       bytes32 groupIdHash, 
       address removingUserAddr, 
-      uint nonce, 
       address signer, 
       bytes calldata signature
-  ) external checkNonce(signer, nonce) {
+  ) external {
 
     // Checking user existence
     require(users[removingUserAddr].id != bytes32(0), "NFD");
 
     // Signature verification
-    bytes32 payloadHash = keccak256(abi.encode("groupRemoveUser", groupIdHash, removingUserAddr, nonce));
-    require(SignChecker.signCheck(payloadHash, signer, signature), "SIG");
+    bytes32 payloadHash = keccak256(abi.encode("groupRemoveUser", groupIdHash, removingUserAddr));
+    require(signCheck(payloadHash, signer, signature), "SIG");
 
     // Checking access rights
     require(userGroups[groupIdHash].members[signer] == AccessLevel.Owner ||

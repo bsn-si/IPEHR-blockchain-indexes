@@ -14,17 +14,17 @@ async function main() {
   // await hre.run('compile');
 
   // We get the contract to deploy
-  const lib = await ethers.getContractFactory("SignChecker");
-  const Lib = await lib.deploy();
-  await Lib.deployed();
+  //const lib = await ethers.getContractFactory("SignChecker");
+  //const Lib = await lib.deploy();
+  //await Lib.deployed();
 
-  console.log("Lib  deployed to:", Lib.address);
+  //console.log("Lib  deployed to:", Lib.address);
 
-  const EhrIndexer = await ethers.getContractFactory("EhrIndexer", {
-      libraries: {
-        SignChecker: Lib.address,
-      },
-  });
+  const EhrIndexer = await ethers.getContractFactory("EhrIndexer");
+  //    libraries: {
+  //      SignChecker: Lib.address,
+  //    },
+  //});
   const ehrIndexer = await EhrIndexer.deploy();
 
   await ehrIndexer.deployed();

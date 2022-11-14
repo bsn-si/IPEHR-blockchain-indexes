@@ -9,31 +9,35 @@ contract Access is Restrictable {
 
     struct Object {
         bytes32      idHash;
-        bytes        idEncr;
-        bytes        keyEncr;
+        bytes        idEncr;    // id encrypted by access key
+        bytes        keyEncr;   // access key encrypted by user private key
         AccessLevel  level;
     }
 
-    mapping(bytes32 => Object[]) accessStore;     // idHash => Object[]
+    mapping(bytes32 => Object[]) accessStore;     // accessID => Object[]
 
     function getAccessByIdHash(
-        bytes32 userIdHash, 
+        bytes32 accessID, 
         bytes32 objectIdHash
     ) 
         external view returns(Object memory) 
     {
-        for (uint i; i < accessStore[userIdHash].length; i++){
-            if (accessStore[userIdHash][i].idHash == objectIdHash) {
-                return accessStore[userIdHash][i];
+        for (uint i; i < accessStore[accessID].length; i++){
+            if (accessStore[accessID][i].idHash == objectIdHash) {
+                return accessStore[accessID][i];
             }
         }
 
         revert("NFD");
     }
 
-    function getUserAccessList(bytes32 userIdHash) external view returns (Object[] memory) {
-        require(accessStore[userIdHash].length > 0, "NFD");
-        return accessStore[userIdHash];
+    function getUserAccessList(
+        bytes32 accessID
+    ) 
+        external view returns (Object[] memory) 
+    {
+        require(accessStore[accessID].length > 0, "NFD");
+        return accessStore[accessID];
     }
 
     function getUserAccessLevel(
@@ -62,5 +66,4 @@ contract Access is Restrictable {
 
         return AccessLevel.NoAccess;
     }
-
 }
