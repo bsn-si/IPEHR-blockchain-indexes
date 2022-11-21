@@ -8,27 +8,30 @@ contract Restrictable is Ownable {
   mapping (address => bool) public allowedChange;
   mapping (address => uint) public nonces;
 
+  constructor() {
+    allowedChange[msg.sender] = true;
+  }
+
   modifier onlyAllowed(address _addr) {
     require(allowedChange[_addr] == true, "Not allowed");
     _;
   }
 
-  function setAllowed(address addr, bool allowed) external onlyOwner() {
-    allowedChange[addr] = allowed;
-  }
+  function signCheck(address signer, bytes calldata signature) internal {
+    bytes memory data = bytes.concat(msg.data[:msg.data.length - 97], new bytes(32 - ((msg.data.length - 97) % 32)));
 
-  function signCheck(
-      bytes32 payloadHash, 
-      address signer,
-      bytes calldata signature
-  ) 
-    internal returns (bool) 
-  {
     nonces[signer]++;
-    return SignatureChecker.isValidSignatureNow(
+
+    bool valid = SignatureChecker.isValidSignatureNow(
       signer, 
-      keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32", payloadHash, nonces[signer])), 
+      keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32", keccak256(data), nonces[signer])), 
       signature
     );
+  
+    require(valid == true, "SIG");
+  }
+
+  function setAllowed(address addr, bool allowed) external onlyOwner() {
+    allowedChange[addr] = allowed;
   }
 }

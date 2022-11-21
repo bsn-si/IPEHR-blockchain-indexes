@@ -16,11 +16,23 @@ contract Access is Restrictable {
 
     mapping(bytes32 => Object[]) accessStore;     // accessID => Object[]
 
-    function getAccessByIdHash(
-        bytes32 accessID, 
-        bytes32 objectIdHash
-    ) 
-        external view returns(Object memory) 
+    ///
+    function setAccess(bytes32 accessID, Object memory o) internal
+    {
+        for(uint i; i < accessStore[accessID].length; i++) {
+            if (accessStore[accessID][i].idHash == o.idHash) {
+                accessStore[accessID][i].idEncr = o.idEncr;
+                accessStore[accessID][i].keyEncr = o.keyEncr;
+                accessStore[accessID][i].level = o.level;
+                return;
+            }
+        }
+
+        accessStore[accessID].push(o);
+    }
+
+    ///
+    function getAccessByIdHash(bytes32 accessID, bytes32 objectIdHash) external view returns(Object memory) 
     {
         for (uint i; i < accessStore[accessID].length; i++){
             if (accessStore[accessID][i].idHash == objectIdHash) {
@@ -31,21 +43,15 @@ contract Access is Restrictable {
         revert("NFD");
     }
 
-    function getUserAccessList(
-        bytes32 accessID
-    ) 
-        external view returns (Object[] memory) 
+    ///
+    function getUserAccessList(bytes32 accessID) external view returns (Object[] memory) 
     {
         require(accessStore[accessID].length > 0, "NFD");
         return accessStore[accessID];
     }
 
-    function getUserAccessLevel(
-        bytes32 userID,
-        AccessKind kind,
-        bytes32 idHash
-    )
-        internal view returns (AccessLevel) 
+    ///
+    function userAccessLevel(bytes32 userID, AccessKind kind, bytes32 idHash) internal view returns (AccessLevel) 
     {
         bytes32 accessID = keccak256(abi.encode(userID, kind));
         for(uint i; i < accessStore[accessID].length; i++){
