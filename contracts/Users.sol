@@ -1,23 +1,24 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 pragma solidity ^0.8.17;
 
+import "./libraries/Attributes.sol";
 import "./Access.sol";
 
 contract Users is Access {
-  enum Role { Patient, Doctor }
+    enum Role { Patient, Doctor }
 
-  struct User {
-    bytes32   id;
-    bytes32   systemID;
-    Role      role;
-    bytes     pwdHash;
-  }
+    struct User {
+      bytes32   id;
+      bytes32   systemID;
+      Role      role;
+      bytes     pwdHash;
+    }
 
-  struct UserGroup {
-    mapping(bytes32 => bytes) params;
-    mapping(address => AccessLevel) members;
-    uint membersCount;
-  }
+    struct UserGroup {
+      mapping(Attributes.Code => bytes) attrs;
+      mapping(address => AccessLevel) members;
+      uint membersCount;
+    }
 
   mapping (address => User) public users;
   mapping (bytes32 => bytes32) public ehrUsers; // userID -> ehrID
@@ -32,9 +33,7 @@ contract Users is Access {
   ) 
     external onlyAllowed(msg.sender)
   {
-    // Signature verification
-    bytes32 payloadHash = keccak256(abi.encode("setEhrUser", userId, ehrId));
-    require(signCheck(payloadHash, signer, signature), "SIG");
+    signCheck(signer, signature);
 
     ehrUsers[userId] = ehrId;
   }
@@ -50,12 +49,10 @@ contract Users is Access {
     bytes calldata signature
   ) external onlyAllowed(msg.sender) {
 
+    signCheck(signer, signature);
+
     // Checking user existence
     require(users[userAddr].id == bytes32(0), "AEX");
-
-    // Signature verification
-    bytes32 payloadHash = keccak256(abi.encode("userNew", userAddr, id, systemID, role, pwdHash));
-    require(signCheck(payloadHash, signer, signature), "SIG");
 
     users[userAddr] = User({
       id: id, 
@@ -65,31 +62,23 @@ contract Users is Access {
     });
   }
 
-  struct KeyValue {
-    bytes32 key;
-    bytes value;
-  }
-
   struct UserGroupCreateParams {
-      bytes32 groupIdHash;
-      bytes groupIdEncr;
-      bytes groupKeyEncr;
-      KeyValue[] params;
-      address signer;
-      bytes signature;
+      bytes32     groupIdHash;
+      bytes       groupIdEncr;
+      bytes       groupKeyEncr;
+      Attributes.Attribute[] attrs;
+      address     signer;
+      bytes       signature;
   }
 
   ///
-  function userGroupCreate(
-    UserGroupCreateParams calldata p
-  ) external onlyAllowed(msg.sender) {
+  function userGroupCreate(UserGroupCreateParams calldata p) 
+      external onlyAllowed(msg.sender) 
+  {
+    signCheck(p.signer, p.signature);
 
     // Checking user existence
     require(users[p.signer].id != bytes32(0), "NFD");
-
-    // Signature verification
-    bytes32 payloadHash = keccak256(abi.encode("userGroupCreate", p.groupIdHash, p.groupIdEncr, p.groupKeyEncr, p.params));
-    require(signCheck(payloadHash, p.signer, p.signature), "SIG");
 
     // Checking group absence
     require(userGroups[p.groupIdHash].membersCount == 0, "AEX");
@@ -98,8 +87,8 @@ contract Users is Access {
     userGroups[p.groupIdHash].members[p.signer] = AccessLevel.Owner;
     userGroups[p.groupIdHash].membersCount++;
 
-    for(uint i; i < p.params.length; i++){
-      userGroups[p.groupIdHash].params[p.params[i].key] = p.params[i].value;
+    for(uint i; i < p.attrs.length; i++){
+      userGroups[p.groupIdHash].attrs[p.attrs[i].code] = p.attrs[i].value;
     }
 
     // Adding a groupID to a user's group list
@@ -125,12 +114,10 @@ contract Users is Access {
   function groupAddUser(GroupAddUserParams calldata p) 
     external
   {
+    signCheck(p.signer, p.signature);
+
     // Checking user existence
     require(users[p.addingUserAddr].id != bytes32(0), "NFD");
-
-    // Signature verification
-    bytes32 payloadHash = keccak256(abi.encode("groupAddUser", p.groupIdHash, p.addingUserAddr, p.level, p.idEncr, p.keyEncr));
-    require(signCheck(payloadHash, p.signer, p.signature), "SIG");
 
     // Checking user not in group already
     // TODO
@@ -158,14 +145,13 @@ contract Users is Access {
       address removingUserAddr, 
       address signer, 
       bytes calldata signature
-  ) external {
+  ) 
+      external
+  {
+    signCheck(signer, signature);
 
     // Checking user existence
     require(users[removingUserAddr].id != bytes32(0), "NFD");
-
-    // Signature verification
-    bytes32 payloadHash = keccak256(abi.encode("groupRemoveUser", groupIdHash, removingUserAddr));
-    require(signCheck(payloadHash, signer, signature), "SIG");
 
     // Checking access rights
     require(userGroups[groupIdHash].members[signer] == AccessLevel.Owner ||
