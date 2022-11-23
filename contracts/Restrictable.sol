@@ -18,13 +18,11 @@ contract Restrictable is Ownable {
   }
 
   function signCheck(address signer, bytes calldata signature) internal {
-    bytes memory data = bytes.concat(msg.data[:msg.data.length - 97], new bytes(32 - ((msg.data.length - 97) % 32)));
-
     nonces[signer]++;
 
     bool valid = SignatureChecker.isValidSignatureNow(
       signer, 
-      keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32", keccak256(data), nonces[signer])), 
+      keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32", keccak256(msg.data[:msg.data.length - 97]), nonces[signer])), 
       signature
     );
   
