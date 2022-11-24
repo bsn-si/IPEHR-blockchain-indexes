@@ -5,28 +5,23 @@ import "./Users.sol";
 
 contract Docs is Users {
 
-    enum DocType { Ehr, EhrAccess, EhrStatus , Composition }
-    enum DocStatus { Active, Deleted }
-
-    /*
-    struct DocumentMeta {
-        DocType docType;
-        DocStatus status;
-        bytes   CID;
-        bytes   dealCID;
-        bytes   minerAddress;
-        bytes   docUIDEncrypted;
-        bytes32 docBaseUIDHash;
-        bytes32 version;
-        bool    isLast;
-        uint32  timestamp;
+    enum DocType {
+        Ehr,            // 0
+        EhrAccess,      // 1
+        EhrStatus ,     // 2
+        Composition,    // 3
+        Query           // 4
+    
     }
-    */
+    enum DocStatus { 
+        Active,         // 0
+        Deleted         // 1
+    }
 
     struct DocumentMeta {
         DocStatus   status;
-        bytes32     id;
-        bytes32     version;
+        bytes       id;
+        bytes       version;
         uint32      timestamp;
         bool        isLast;
         Attributes.Attribute[] attrs; 
@@ -69,8 +64,8 @@ contract Docs is Users {
 
     struct AddEhrDocParams {
         DocType     docType;
-        bytes32     id;
-        bytes32     version;
+        bytes       id;
+        bytes       version;
         uint32      timestamp;
         Attributes.Attribute[] attrs;
         address     signer;
@@ -89,12 +84,11 @@ contract Docs is Users {
         bytes32 ehrId = ehrUsers[userId];
         require(ehrId != bytes32(0), "NFD2");
 
-        bytes memory cid = Attributes.get(p.attrs, Attributes.Code.Cid);
-        require(cid.length > 0, "REQ1");
+        require(p.id.length > 0, "REQ1");
 
-        bytes32 CIDHash = keccak256(cid);
-        require(cids[CIDHash] == false, "AEX");
-        cids[CIDHash] = true;
+        bytes32 IDHash = keccak256(p.id);
+        require(cids[IDHash] == false, "AEX");
+        cids[IDHash] = true;
 
         ehrDocs[ehrId][p.docType].push();
         DocumentMeta storage docMeta = ehrDocs[ehrId][p.docType][ehrDocs[ehrId][p.docType].length - 1];
@@ -104,10 +98,9 @@ contract Docs is Users {
                 ehrDocs[ehrId][p.docType][i].isLast = false;
             }
         } else if (p.docType == DocType.Composition) {
-            bytes memory docBaseUIDHash = Attributes.get(p.attrs, Attributes.Code.DocBaseUIDHash);
-            require(docBaseUIDHash.length == 32, "REQ2");
-            for (uint i = 0; i < ehrDocs[ehrId][DocType.Composition].length; i++) {
-                if (bytes32(ehrDocs[ehrId][p.docType][i].id) == bytes32(docBaseUIDHash)) {
+            bytes32 docBaseUIDHash = bytes32(Attributes.get(p.attrs, Attributes.Code.DocBaseUIDHash));
+            for (uint i = 0; i < ehrDocs[ehrId][p.docType].length; i++) {
+                if (bytes32(Attributes.get(ehrDocs[ehrId][p.docType][i].attrs, Attributes.Code.DocBaseUIDHash)) == docBaseUIDHash) {
                     ehrDocs[ehrId][p.docType][i].isLast = false;
                 }
             }
@@ -123,11 +116,13 @@ contract Docs is Users {
             docMeta.attrs.push(p.attrs[i]);
         }
 
+        if (p.docType == DocType.Query) return;
+
         bytes32 accessID = keccak256(abi.encode(userId, AccessKind.Doc));
         
         accessStore[accessID].push(Object({
-            idHash: CIDHash,
-            idEncr: Attributes.get(p.attrs, Attributes.Code.CidEncr),
+            idHash: IDHash,
+            idEncr: Attributes.get(p.attrs, Attributes.Code.IDEncr),
             keyEncr: Attributes.get(p.attrs, Attributes.Code.KeyEncr),
             level: AccessLevel.Admin
         }));
@@ -159,9 +154,8 @@ contract Docs is Users {
         public view returns (DocumentMeta memory) 
     {
         for (uint i = 0; i < ehrDocs[ehrId][docType].length; i++) {
-            if (ehrDocs[ehrId][docType][i].id == docBaseUIDHash && ehrDocs[ehrId][docType][i].version == version) {
-                return ehrDocs[ehrId][docType][i];
-            }
+            if (bytes32(Attributes.get(ehrDocs[ehrId][docType][i].attrs, Attributes.Code.DocBaseUIDHash)) == docBaseUIDHash && 
+                bytes32(ehrDocs[ehrId][docType][i].version) == version) return ehrDocs[ehrId][docType][i];
         }
         revert("NFD");
     }
@@ -188,9 +182,8 @@ contract Docs is Users {
         public view returns (DocumentMeta memory) 
     {
         for (uint i = 0; i < ehrDocs[ehrId][docType].length; i++) {
-            if (ehrDocs[ehrId][docType][i].id == docBaseUIDHash && ehrDocs[ehrId][docType][i].isLast) {
-                return ehrDocs[ehrId][docType][i];
-            }
+            if (bytes32(Attributes.get(ehrDocs[ehrId][docType][i].attrs, Attributes.Code.DocBaseUIDHash)) == docBaseUIDHash && 
+                ehrDocs[ehrId][docType][i].isLast) return ehrDocs[ehrId][docType][i];
         }
 
         revert("NFD");
@@ -198,7 +191,7 @@ contract Docs is Users {
 
     ///
     function setDocAccess(
-        bytes  calldata CID,
+        bytes32         CIDHash,
         Object calldata accessObj,
         address         userAddr,
         address         signer,
@@ -215,7 +208,6 @@ contract Docs is Users {
         // Checking access rights
         {
             // Signer should be Owner or Admin of doc
-            bytes32 CIDHash = keccak256(abi.encode(CID));
             AccessLevel signerLevel = userAccessLevel(users[signer].id, AccessKind.Doc, CIDHash);
             require(signerLevel == AccessLevel.Owner || signerLevel == AccessLevel.Admin, "DND");
             require(userAccessLevel(user.id, AccessKind.Doc, CIDHash) != AccessLevel.Owner, "DND");
@@ -249,7 +241,9 @@ contract Docs is Users {
         require(docType == DocType.Composition, "WTP");
         
         for (uint i = 0; i < ehrDocs[ehrId][docType].length; i++) {
-            if (ehrDocs[ehrId][docType][i].id == docBaseUIDHash && ehrDocs[ehrId][docType][i].version == version) {
+            if (bytes32(Attributes.get(ehrDocs[ehrId][docType][i].attrs, Attributes.Code.DocBaseUIDHash)) == docBaseUIDHash && 
+                bytes32(ehrDocs[ehrId][docType][i].version) == version) 
+            {
                 require (ehrDocs[ehrId][docType][i].status != DocStatus.Deleted, "ADL");
                 ehrDocs[ehrId][docType][i].status = DocStatus.Deleted;
                 return;
