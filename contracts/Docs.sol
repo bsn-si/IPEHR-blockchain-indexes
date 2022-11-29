@@ -97,7 +97,7 @@ contract Docs is Users {
             for (uint i = 0; i < ehrDocs[ehrId][p.docType].length; i++) {
                 ehrDocs[ehrId][p.docType][i].isLast = false;
             }
-        } else if (p.docType == DocType.Composition) {
+        } else if (p.docType == DocType.Composition || p.docType == DocType.Query) {
             bytes32 docBaseUIDHash = bytes32(Attributes.get(p.attrs, Attributes.Code.DocBaseUIDHash));
             for (uint i = 0; i < ehrDocs[ehrId][p.docType].length; i++) {
                 if (bytes32(Attributes.get(ehrDocs[ehrId][p.docType][i].attrs, Attributes.Code.DocBaseUIDHash)) == docBaseUIDHash) {
