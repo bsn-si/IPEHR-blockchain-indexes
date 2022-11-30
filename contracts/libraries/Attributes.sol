@@ -11,7 +11,8 @@ library Attributes {
         DocUIDEncrypted,       // 5
         DealCid,               // 6
         MinerAddress,          // 7
-        AttributeContentEncr   // 8
+        ContentEncr,           // 8
+        DescriptionEncr        // 9
     }
 
     struct Attribute {
