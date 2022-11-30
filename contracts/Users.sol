@@ -25,16 +25,11 @@ contract Users is Access {
   mapping (bytes32 => UserGroup) userGroups; // groupIdHash => UserGroup
 
   ///
-  function setEhrUser(
-    bytes32 userId, 
-    bytes32 ehrId,
-    address signer, 
-    bytes calldata signature
-  ) 
+  function setEhrUser(bytes32 userId, bytes32 ehrId, address signer, bytes calldata signature) 
     external onlyAllowed(msg.sender)
   {
     signCheck(signer, signature);
-
+    require(ehrUsers[userId] == bytes32(0), "AEX");
     ehrUsers[userId] = ehrId;
   }
 
@@ -64,8 +59,6 @@ contract Users is Access {
 
   struct UserGroupCreateParams {
       bytes32     groupIdHash;
-      bytes       groupIdEncr;
-      bytes       groupKeyEncr;
       Attributes.Attribute[] attrs;
       address     signer;
       bytes       signature;
@@ -94,8 +87,8 @@ contract Users is Access {
     // Adding a groupID to a user's group list
     accessStore[keccak256(abi.encode(p.groupIdHash, AccessKind.UserGroup))].push(Object({
       idHash: p.groupIdHash,
-      idEncr: p.groupIdEncr,
-      keyEncr: p.groupKeyEncr,
+      idEncr: Attributes.get(p.attrs, Attributes.Code.IDEncr),
+      keyEncr: Attributes.get(p.attrs, Attributes.Code.KeyEncr),
       level: AccessLevel.Owner
     }));
   }
