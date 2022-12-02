@@ -4,7 +4,7 @@ pragma solidity ^0.8.17;
 import "./libraries/Attributes.sol";
 import "./Access.sol";
 
-contract Users is Access {
+contract Users is AccessStore {
     enum Role { Patient, Doctor }
 
     struct User {
@@ -14,15 +14,19 @@ contract Users is Access {
       bytes     pwdHash;
     }
 
+    struct GroupMember {
+      bytes32 userIDHash;
+      bytes userIDEncr;    // userIDs encrypted by group key
+    }
+
     struct UserGroup {
-      mapping(Attributes.Code => bytes) attrs;
-      mapping(address => AccessLevel) members;
-      uint membersCount;
+      Attributes.Attribute[] attrs;
+      GroupMember[] members;  
     }
 
   mapping (address => User) public users;
   mapping (bytes32 => bytes32) public ehrUsers; // userID -> ehrID
-  mapping (bytes32 => UserGroup) userGroups; // groupIdHash => UserGroup
+  mapping (bytes32 => UserGroup) userGroups;    // groupIdHash => UserGroup
 
   ///
   function setEhrUser(bytes32 userId, bytes32 ehrId, address signer, bytes calldata signature) 
@@ -74,18 +78,15 @@ contract Users is Access {
     require(users[p.signer].id != bytes32(0), "NFD");
 
     // Checking group absence
-    require(userGroups[p.groupIdHash].membersCount == 0, "AEX");
+    require(userGroups[p.groupIdHash].attrs.length == 0, "AEX");
 
     // Creating a group
-    userGroups[p.groupIdHash].members[p.signer] = AccessLevel.Owner;
-    userGroups[p.groupIdHash].membersCount++;
-
-    for(uint i; i < p.attrs.length; i++){
-      userGroups[p.groupIdHash].attrs[p.attrs[i].code] = p.attrs[i].value;
+    for (uint i; i < p.attrs.length; i++) {
+      userGroups[p.groupIdHash].attrs.push(p.attrs[i]);
     }
 
     // Adding a groupID to a user's group list
-    accessStore[keccak256(abi.encode(p.groupIdHash, AccessKind.UserGroup))].push(Object({
+    setAccess(keccak256(abi.encode(users[p.signer].id, AccessKind.UserGroup)), Access({
       idHash: p.groupIdHash,
       idEncr: Attributes.get(p.attrs, Attributes.Code.IDEncr),
       keyEncr: Attributes.get(p.attrs, Attributes.Code.KeyEncr),
@@ -97,36 +98,38 @@ contract Users is Access {
     bytes32 groupIdHash;
     address addingUserAddr;
     AccessLevel level;
-    bytes idEncr;
-    bytes keyEncr;
+    bytes addingUserIDEncr; // userID encrypted by group key
+    bytes keyEncr;          // group key encrypted by adding user public key
     address signer;
     bytes signature;
   }
 
   ///
-  function groupAddUser(GroupAddUserParams calldata p) 
-    external
+  function groupAddUser(GroupAddUserParams calldata p) external
   {
     signCheck(p.signer, p.signature);
 
     // Checking user existence
-    require(users[p.addingUserAddr].id != bytes32(0), "NFD");
-
-    // Checking user not in group already
-    // TODO
+    bytes32 addingUserID = users[p.addingUserAddr].id;
+    require(addingUserID != bytes32(0), "NFD");
 
     // Checking access rights
-    require(userGroups[p.groupIdHash].members[p.signer] == AccessLevel.Owner || 
-        userGroups[p.groupIdHash].members[p.signer] == AccessLevel.Admin, "DNY");
+    Access memory signerAccess = userAccess(users[p.signer].id, AccessKind.UserGroup, p.groupIdHash);
+    require(signerAccess.level == AccessLevel.Owner || signerAccess.level == AccessLevel.Admin, "DNY");
+    
+    // Checking user not in group already
+    require(userAccess(addingUserID, AccessKind.UserGroup, p.groupIdHash).level == AccessLevel.NoAccess, "AEX");
 
     // Adding a user to a group
-    userGroups[p.groupIdHash].members[p.addingUserAddr] = p.level;
-    userGroups[p.groupIdHash].membersCount++;
+    userGroups[p.groupIdHash].members.push(GroupMember({
+      userIDHash: keccak256(abi.encode(addingUserID)),
+      userIDEncr: p.addingUserIDEncr
+    }));
 
     // Adding the group's secret key
-    accessStore[keccak256(abi.encode(users[p.addingUserAddr].id, AccessKind.UserGroup))].push(Object({
+    setAccess(keccak256(abi.encode(addingUserID, AccessKind.UserGroup)), Access({
       idHash: p.groupIdHash,
-      idEncr: p.idEncr,
+      idEncr: signerAccess.idEncr,
       keyEncr: p.keyEncr,
       level: p.level
     }));
@@ -147,29 +150,25 @@ contract Users is Access {
     require(users[removingUserAddr].id != bytes32(0), "NFD");
 
     // Checking access rights
-    require(userGroups[groupIdHash].members[signer] == AccessLevel.Owner ||
-        userGroups[groupIdHash].members[signer] == AccessLevel.Admin, "DNY");
+    Access memory signerAccess = userAccess(users[signer].id, AccessKind.UserGroup, groupIdHash);
+    require(signerAccess.level == AccessLevel.Owner || signerAccess.level == AccessLevel.Admin, "DNY");
 
     // Removing a user from a group
-    userGroups[groupIdHash].members[removingUserAddr] = AccessLevel.NoAccess;
-    userGroups[groupIdHash].membersCount--;
-
-    // Removing a group's access key
-    bytes32 userIdHash = keccak256(abi.encode(users[removingUserAddr].id, AccessKind.UserGroup));
-    for(uint i; i < accessStore[userIdHash].length; i++) {
-      if (accessStore[userIdHash][i].idHash == groupIdHash) {
-        accessStore[userIdHash][i].idHash = bytes32(0);
-        accessStore[userIdHash][i].idEncr = new bytes(0);
-        accessStore[userIdHash][i].keyEncr = new bytes(0);
-        accessStore[userIdHash][i].level = AccessLevel.NoAccess;
-        return;
+    bytes32 removingUserIDHash = keccak256(abi.encode(users[removingUserAddr].id));
+    for(uint i; i < userGroups[groupIdHash].members.length; i++) {
+      if (userGroups[groupIdHash].members[i].userIDHash == removingUserIDHash) {
+          userGroups[groupIdHash].members[i] = userGroups[groupIdHash].members[userGroups[groupIdHash].members.length-1];
+          userGroups[groupIdHash].members.pop();
       }
     }
 
-    revert("NFD");
-
-    //TODO Delete groupID from the list of user groups
+    // Removing a group's access key
+    bytes32 accessID = keccak256(abi.encode(users[removingUserAddr].id, AccessKind.UserGroup));
+    require(setAccess(accessID, ZeroAccess) == 1,"NFD");
   }
 
+  function userGroupGetByID(bytes32 groupIdHash) external view returns(UserGroup memory) {
+    return(userGroups[groupIdHash]);
+  }
 }
 

@@ -30,13 +30,13 @@ contract DocGroups is Users {
 
         // Checking the duplicate
         bytes32 accessID = keccak256(abi.encode(p.groupIdHash, AccessKind.DocGroup));
-        require(accessStore[accessID].length == 0, "AEX");
+        require(getUserAccessList(accessID).length == 0, "AEX");
 
         User memory owner = users[p.signer];
         require(owner.id != bytes32(0), "NFD");
 
         // List of users who have access to the group
-        accessStore[accessID].push(Object({
+        setAccess(accessID, Access({
             idHash: keccak256(abi.encode(owner.id)),
             idEncr: p.userIdEncr,
             keyEncr: new bytes(0),
@@ -50,8 +50,7 @@ contract DocGroups is Users {
         }
 
         // List of groups that the user has access to
-        accessID = keccak256((abi.encode(owner.id, AccessKind.DocGroup)));
-        accessStore[accessID].push(Object({
+        setAccess(keccak256((abi.encode(owner.id, AccessKind.DocGroup))), Access({
             idHash: p.groupIdHash,
             idEncr: p.groupIdEncr,
             keyEncr: p.keyEncr,
@@ -75,11 +74,11 @@ contract DocGroups is Users {
         require(user.id != bytes32(0), "NFD");
 
         // Checking access
-        AccessLevel level = userAccessLevel(
+        AccessLevel level = userAccess(
             keccak256(abi.encode(user.id, AccessKind.DocGroup)), 
             AccessKind.DocGroup, 
             groupIdHash
-        );
+        ).level;
         require(level == AccessLevel.Owner || level == AccessLevel.Admin, "DND");
 
         // Checking the duplicate

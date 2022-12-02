@@ -117,10 +117,8 @@ contract Docs is Users {
         }
 
         if (p.docType == DocType.Query) return;
-
-        bytes32 accessID = keccak256(abi.encode(userId, AccessKind.Doc));
         
-        accessStore[accessID].push(Object({
+        setAccess(keccak256(abi.encode(userId, AccessKind.Doc)), Access({
             idHash: IDHash,
             idEncr: Attributes.get(p.attrs, Attributes.Code.IDEncr),
             keyEncr: Attributes.get(p.attrs, Attributes.Code.KeyEncr),
@@ -192,7 +190,7 @@ contract Docs is Users {
     ///
     function setDocAccess(
         bytes32         CIDHash,
-        Object calldata accessObj,
+        Access calldata access,
         address         userAddr,
         address         signer,
         bytes calldata  signature
@@ -208,21 +206,18 @@ contract Docs is Users {
         // Checking access rights
         {
             // Signer should be Owner or Admin of doc
-            AccessLevel signerLevel = userAccessLevel(users[signer].id, AccessKind.Doc, CIDHash);
+            AccessLevel signerLevel = userAccess(users[signer].id, AccessKind.Doc, CIDHash).level;
             require(signerLevel == AccessLevel.Owner || signerLevel == AccessLevel.Admin, "DND");
-            require(userAccessLevel(user.id, AccessKind.Doc, CIDHash) != AccessLevel.Owner, "DND");
+            require(userAccess(user.id, AccessKind.Doc, CIDHash).level != AccessLevel.Owner, "DND");
         }
         
         // Request validation
-        if (accessObj.level == AccessLevel.NoAccess) {
-            require(accessObj.keyEncr.length == 0 && accessObj.idEncr.length == 0, "E01");
+        if (access.level == AccessLevel.NoAccess) {
+            require(access.keyEncr.length == 0 && access.idEncr.length == 0, "E01");
         }
 
         // Set access
-        setAccess(
-            keccak256(abi.encode(user.id, AccessKind.Doc)),
-            accessObj
-        );
+        setAccess(keccak256(abi.encode(user.id, AccessKind.Doc)), access);
     }
 
     ///
