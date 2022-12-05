@@ -95,10 +95,10 @@ contract Users is AccessStore {
   }
 
   struct GroupAddUserParams {
-    bytes32 groupIdHash;
-    address addingUserAddr;
+    bytes32 groupIDHash;
+    bytes32 userIDHash;
     AccessLevel level;
-    bytes addingUserIDEncr; // userID encrypted by group key
+    bytes userIDEncr;       // userID encrypted by group key
     bytes keyEncr;          // group key encrypted by adding user public key
     address signer;
     bytes signature;
@@ -109,26 +109,27 @@ contract Users is AccessStore {
   {
     signCheck(p.signer, p.signature);
 
-    // Checking user existence
-    bytes32 addingUserID = users[p.addingUserAddr].id;
-    require(addingUserID != bytes32(0), "NFD");
-
     // Checking access rights
-    Access memory signerAccess = userAccess(users[p.signer].id, AccessKind.UserGroup, p.groupIdHash);
+    Access memory signerAccess = userAccess(users[p.signer].id, AccessKind.UserGroup, p.groupIDHash);
     require(signerAccess.level == AccessLevel.Owner || signerAccess.level == AccessLevel.Admin, "DNY");
+
+    // Checking group is exist
+    require(userGroups[p.groupIDHash].attrs.length > 0, "NFD");
     
     // Checking user not in group already
-    require(userAccess(addingUserID, AccessKind.UserGroup, p.groupIdHash).level == AccessLevel.NoAccess, "AEX");
+    for (uint i; i < userGroups[p.groupIDHash].members.length; i++) {
+      if (userGroups[p.groupIDHash].members[i].userIDHash == p.userIDHash) revert("AEX");
+    }
 
     // Adding a user to a group
-    userGroups[p.groupIdHash].members.push(GroupMember({
-      userIDHash: keccak256(abi.encode(addingUserID)),
-      userIDEncr: p.addingUserIDEncr
+    userGroups[p.groupIDHash].members.push(GroupMember({
+      userIDHash: p.userIDHash,
+      userIDEncr: p.userIDEncr
     }));
 
     // Adding the group's secret key
-    setAccess(keccak256(abi.encode(addingUserID, AccessKind.UserGroup)), Access({
-      idHash: p.groupIdHash,
+    setAccess(keccak256(abi.encode(p.userIDHash, AccessKind.UserGroup)), Access({
+      idHash: p.groupIDHash,
       idEncr: signerAccess.idEncr,
       keyEncr: p.keyEncr,
       level: p.level
@@ -137,8 +138,8 @@ contract Users is AccessStore {
 
   ///
   function groupRemoveUser(
-      bytes32 groupIdHash, 
-      address removingUserAddr, 
+      bytes32 groupIDHash, 
+      bytes32 userIDHash, 
       address signer, 
       bytes calldata signature
   ) 
@@ -146,25 +147,20 @@ contract Users is AccessStore {
   {
     signCheck(signer, signature);
 
-    // Checking user existence
-    require(users[removingUserAddr].id != bytes32(0), "NFD");
-
     // Checking access rights
-    Access memory signerAccess = userAccess(users[signer].id, AccessKind.UserGroup, groupIdHash);
+    Access memory signerAccess = userAccess(users[signer].id, AccessKind.UserGroup, groupIDHash);
     require(signerAccess.level == AccessLevel.Owner || signerAccess.level == AccessLevel.Admin, "DNY");
 
     // Removing a user from a group
-    bytes32 removingUserIDHash = keccak256(abi.encode(users[removingUserAddr].id));
-    for(uint i; i < userGroups[groupIdHash].members.length; i++) {
-      if (userGroups[groupIdHash].members[i].userIDHash == removingUserIDHash) {
-          userGroups[groupIdHash].members[i] = userGroups[groupIdHash].members[userGroups[groupIdHash].members.length-1];
-          userGroups[groupIdHash].members.pop();
+    for(uint i; i < userGroups[groupIDHash].members.length; i++) {
+      if (userGroups[groupIDHash].members[i].userIDHash == userIDHash) {
+          userGroups[groupIDHash].members[i] = userGroups[groupIDHash].members[userGroups[groupIDHash].members.length-1];
+          userGroups[groupIDHash].members.pop();
       }
     }
 
     // Removing a group's access key
-    bytes32 accessID = keccak256(abi.encode(users[removingUserAddr].id, AccessKind.UserGroup));
-    require(setAccess(accessID, ZeroAccess) == 1,"NFD");
+    require(setAccess(keccak256(abi.encode(userIDHash, AccessKind.UserGroup)), ZeroAccess) == 1,"NFD");
   }
 
   function userGroupGetByID(bytes32 groupIdHash) external view returns(UserGroup memory) {
