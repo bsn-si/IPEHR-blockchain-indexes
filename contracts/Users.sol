@@ -8,10 +8,9 @@ contract Users is AccessStore {
     enum Role { Patient, Doctor }
 
     struct User {
-      bytes32   id;
-      bytes32   systemID;
+      bytes32   IDHash;
       Role      role;
-      bytes     pwdHash;
+      Attributes.Attribute[] attrs;
     }
 
     struct GroupMember {
@@ -24,7 +23,7 @@ contract Users is AccessStore {
       GroupMember[] members;  
     }
 
-  mapping (address => User) public users;
+  mapping (address => User) users;
   mapping (bytes32 => bytes32) public ehrUsers; // userID -> ehrID
   mapping (bytes32 => UserGroup) userGroups;    // groupIdHash => UserGroup
 
@@ -39,11 +38,10 @@ contract Users is AccessStore {
 
   ///
   function userNew(
-    address userAddr, 
-    bytes32 id, 
-    bytes32 systemID, 
+    address addr, 
+    bytes32 IDHash,        // sha3(userID+systemID) 
     Role role, 
-    bytes calldata pwdHash, 
+    Attributes.Attribute[] calldata attrs,
     address signer, 
     bytes calldata signature
   ) external onlyAllowed(msg.sender) {
@@ -51,14 +49,26 @@ contract Users is AccessStore {
     signCheck(signer, signature);
 
     // Checking user existence
-    require(users[userAddr].id == bytes32(0), "AEX");
+    require(users[addr].IDHash == bytes32(0), "AEX");
 
-    users[userAddr] = User({
-      id: id, 
-      systemID: systemID,
-      role: role, 
-      pwdHash: pwdHash
-    });
+    users[addr].IDHash = IDHash;
+    users[addr].role = role;
+
+    for (uint i; i < attrs.length; i++) {
+      if (attrs[i].code == Attributes.Code.Timestamp) continue;
+      users[addr].attrs.push(attrs[i]);
+    }
+
+    // Set timestamp
+    users[addr].attrs.push(Attributes.Attribute({
+      code: Attributes.Code.Timestamp,
+      value: abi.encodePacked(block.timestamp)
+    }));
+  }
+
+  ///
+  function getUser(address addr) external view returns(User memory) {
+    return(users[addr]);
   }
 
   struct UserGroupCreateParams {
@@ -75,7 +85,7 @@ contract Users is AccessStore {
     signCheck(p.signer, p.signature);
 
     // Checking user existence
-    require(users[p.signer].id != bytes32(0), "NFD");
+    require(users[p.signer].IDHash != bytes32(0), "NFD");
 
     // Checking group absence
     require(userGroups[p.groupIdHash].attrs.length == 0, "AEX");
@@ -86,7 +96,7 @@ contract Users is AccessStore {
     }
 
     // Adding a groupID to a user's group list
-    setAccess(keccak256(abi.encode(users[p.signer].id, AccessKind.UserGroup)), Access({
+    setAccess(keccak256(abi.encode(users[p.signer].IDHash, AccessKind.UserGroup)), Access({
       idHash: p.groupIdHash,
       idEncr: Attributes.get(p.attrs, Attributes.Code.IDEncr),
       keyEncr: Attributes.get(p.attrs, Attributes.Code.KeyEncr),
@@ -110,7 +120,7 @@ contract Users is AccessStore {
     signCheck(p.signer, p.signature);
 
     // Checking access rights
-    Access memory signerAccess = userAccess(users[p.signer].id, AccessKind.UserGroup, p.groupIDHash);
+    Access memory signerAccess = userAccess(users[p.signer].IDHash, AccessKind.UserGroup, p.groupIDHash);
     require(signerAccess.level == AccessLevel.Owner || signerAccess.level == AccessLevel.Admin, "DNY");
 
     // Checking group is exist
@@ -148,7 +158,7 @@ contract Users is AccessStore {
     signCheck(signer, signature);
 
     // Checking access rights
-    Access memory signerAccess = userAccess(users[signer].id, AccessKind.UserGroup, groupIDHash);
+    Access memory signerAccess = userAccess(users[signer].IDHash, AccessKind.UserGroup, groupIDHash);
     require(signerAccess.level == AccessLevel.Owner || signerAccess.level == AccessLevel.Admin, "DNY");
 
     // Removing a user from a group
