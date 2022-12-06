@@ -11,8 +11,11 @@ library Attributes {
         DocUIDEncrypted,       // 5
         DealCid,               // 6
         MinerAddress,          // 7
-        ContentEncr,           // 8
-        DescriptionEncr        // 9
+        Content,               // 8
+        ContentEncr,           // 9
+        DescriptionEncr,       // 10
+        PasswordHash,          // 11
+        Timestamp              // 12
     }
 
     struct Attribute {

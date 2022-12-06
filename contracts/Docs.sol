@@ -78,7 +78,7 @@ contract Docs is Users {
     {
         signCheck(p.signer, p.signature);
 
-        bytes32 userId = users[p.signer].id;
+        bytes32 userId = users[p.signer].IDHash;
         require(userId != bytes32(0), "NFD1");
 
         bytes32 ehrId = ehrUsers[userId];
@@ -200,15 +200,15 @@ contract Docs is Users {
         signCheck(signer, signature);
 
         User memory user = users[userAddr];
-        require(user.id != bytes32(0), "NFD");
-        require(users[signer].id != bytes32(0), "NFD");
+        require(user.IDHash != bytes32(0), "NFD");
+        require(users[signer].IDHash != bytes32(0), "NFD");
 
         // Checking access rights
         {
             // Signer should be Owner or Admin of doc
-            AccessLevel signerLevel = userAccess(users[signer].id, AccessKind.Doc, CIDHash).level;
+            AccessLevel signerLevel = userAccess(users[signer].IDHash, AccessKind.Doc, CIDHash).level;
             require(signerLevel == AccessLevel.Owner || signerLevel == AccessLevel.Admin, "DND");
-            require(userAccess(user.id, AccessKind.Doc, CIDHash).level != AccessLevel.Owner, "DND");
+            require(userAccess(user.IDHash, AccessKind.Doc, CIDHash).level != AccessLevel.Owner, "DND");
         }
         
         // Request validation
@@ -217,7 +217,7 @@ contract Docs is Users {
         }
 
         // Set access
-        setAccess(keccak256(abi.encode(user.id, AccessKind.Doc)), access);
+        setAccess(keccak256(abi.encode(user.IDHash, AccessKind.Doc)), access);
     }
 
     ///

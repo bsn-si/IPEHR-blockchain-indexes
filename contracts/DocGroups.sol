@@ -33,11 +33,11 @@ contract DocGroups is Users {
         require(getUserAccessList(accessID).length == 0, "AEX");
 
         User memory owner = users[p.signer];
-        require(owner.id != bytes32(0), "NFD");
+        require(owner.IDHash != bytes32(0), "NFD");
 
         // List of users who have access to the group
         setAccess(accessID, Access({
-            idHash: keccak256(abi.encode(owner.id)),
+            idHash: keccak256(abi.encode(owner.IDHash)),
             idEncr: p.userIdEncr,
             keyEncr: new bytes(0),
             level: AccessLevel.Owner
@@ -50,7 +50,7 @@ contract DocGroups is Users {
         }
 
         // List of groups that the user has access to
-        setAccess(keccak256((abi.encode(owner.id, AccessKind.DocGroup))), Access({
+        setAccess(keccak256((abi.encode(owner.IDHash, AccessKind.DocGroup))), Access({
             idHash: p.groupIdHash,
             idEncr: p.groupIdEncr,
             keyEncr: p.keyEncr,
@@ -71,11 +71,11 @@ contract DocGroups is Users {
 
         // Checking user existence
         User storage user = users[signer];
-        require(user.id != bytes32(0), "NFD");
+        require(user.IDHash != bytes32(0), "NFD");
 
         // Checking access
         AccessLevel level = userAccess(
-            keccak256(abi.encode(user.id, AccessKind.DocGroup)), 
+            keccak256(abi.encode(user.IDHash, AccessKind.DocGroup)), 
             AccessKind.DocGroup, 
             groupIdHash
         ).level;
