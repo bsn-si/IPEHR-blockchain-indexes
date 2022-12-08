@@ -2,106 +2,84 @@
 pragma solidity ^0.8.17;
 
 import "./libraries/Attributes.sol";
-import "./Access.sol";
 
-contract Users is AccessStore {
-    enum Role { Patient, Doctor }
+import "./interfaces/IAccessStore.sol";
+import "./interfaces/IUsers.sol";
 
-    struct User {
-      bytes32   id;
-      bytes32   systemID;
-      Role      role;
-      bytes     pwdHash;
-    }
+import "./Restrictable.sol";
+import "./ImmutableState.sol";
 
-    struct GroupMember {
-      bytes32 userIDHash;
-      bytes userIDEncr;    // userIDs encrypted by group key
-    }
-
-    struct UserGroup {
-      Attributes.Attribute[] attrs;
-      GroupMember[] members;  
-    }
-
-  mapping (address => User) public users;
-  mapping (bytes32 => bytes32) public ehrUsers; // userID -> ehrID
+contract Users is IUsers, ImmutableState, Restrictable {
+  mapping (address => User) usersStore;
   mapping (bytes32 => UserGroup) userGroups;    // groupIdHash => UserGroup
 
-  ///
-  function setEhrUser(bytes32 userId, bytes32 ehrId, address signer, bytes calldata signature) 
-    external onlyAllowed(msg.sender)
-  {
-    signCheck(signer, signature);
-    require(ehrUsers[userId] == bytes32(0), "AEX");
-    ehrUsers[userId] = ehrId;
-  }
+  constructor(address _accessStore) ImmutableState(_accessStore, address(this)) {}
 
   ///
   function userNew(
-    address userAddr, 
-    bytes32 id, 
-    bytes32 systemID, 
+    address addr, 
+    bytes32 IDHash,        // sha3(userID+systemID) 
     Role role, 
-    bytes calldata pwdHash, 
+    Attributes.Attribute[] calldata attrs,
     address signer, 
     bytes calldata signature
-  ) external onlyAllowed(msg.sender) {
-
+  ) 
+    external onlyAllowed(msg.sender) 
+  {
     signCheck(signer, signature);
 
     // Checking user existence
-    require(users[userAddr].id == bytes32(0), "AEX");
+    require(usersStore[addr].IDHash == bytes32(0), "AEX");
 
-    users[userAddr] = User({
-      id: id, 
-      systemID: systemID,
-      role: role, 
-      pwdHash: pwdHash
-    });
-  }
+    usersStore[addr].IDHash = IDHash;
+    usersStore[addr].role = role;
 
-  struct UserGroupCreateParams {
-      bytes32     groupIdHash;
-      Attributes.Attribute[] attrs;
-      address     signer;
-      bytes       signature;
-  }
-
-  ///
-  function userGroupCreate(UserGroupCreateParams calldata p) 
-      external onlyAllowed(msg.sender) 
-  {
-    signCheck(p.signer, p.signature);
-
-    // Checking user existence
-    require(users[p.signer].id != bytes32(0), "NFD");
-
-    // Checking group absence
-    require(userGroups[p.groupIdHash].attrs.length == 0, "AEX");
-
-    // Creating a group
-    for (uint i; i < p.attrs.length; i++) {
-      userGroups[p.groupIdHash].attrs.push(p.attrs[i]);
+    for (uint i; i < attrs.length; i++) {
+      if (attrs[i].code == Attributes.Code.Timestamp) continue;
+      usersStore[addr].attrs.push(attrs[i]);
     }
 
-    // Adding a groupID to a user's group list
-    setAccess(keccak256(abi.encode(users[p.signer].id, AccessKind.UserGroup)), Access({
-      idHash: p.groupIdHash,
-      idEncr: Attributes.get(p.attrs, Attributes.Code.IDEncr),
-      keyEncr: Attributes.get(p.attrs, Attributes.Code.KeyEncr),
-      level: AccessLevel.Owner
+    // Set timestamp
+    usersStore[addr].attrs.push(Attributes.Attribute({
+      code: Attributes.Code.Timestamp,
+      value: abi.encodePacked(block.timestamp)
     }));
   }
 
-  struct GroupAddUserParams {
-    bytes32 groupIDHash;
-    bytes32 userIDHash;
-    AccessLevel level;
-    bytes userIDEncr;       // userID encrypted by group key
-    bytes keyEncr;          // group key encrypted by adding user public key
-    address signer;
-    bytes signature;
+  ///
+  function getUser(address addr) external view returns(User memory) {
+    return usersStore[addr];
+  }
+
+  ///
+  function userGroupCreate(
+    bytes32 groupIdHash, 
+    Attributes.Attribute[] calldata attrs, 
+    address signer,
+    bytes calldata signature
+  ) 
+      external onlyAllowed(msg.sender) 
+  {
+    signCheck(signer, signature);
+
+    // Checking user existence
+    require(usersStore[signer].IDHash != bytes32(0), "NFD");
+
+    // Checking group absence
+    require(userGroups[groupIdHash].attrs.length == 0, "AEX");
+
+    // Creating a group
+    for (uint i; i < attrs.length; i++) {
+      userGroups[groupIdHash].attrs.push(attrs[i]);
+    }
+
+    // Adding a groupID to a user's group list
+    IAccessStore(accessStore).setAccess(keccak256(abi.encode(usersStore[signer].IDHash, IAccessStore.AccessKind.UserGroup)), IAccessStore.Access({
+      idHash: groupIdHash,
+      idEncr: Attributes.get(attrs, Attributes.Code.IDEncr),
+      keyEncr: Attributes.get(attrs, Attributes.Code.KeyEncr),
+      level: IAccessStore.AccessLevel.Owner
+    }));
   }
 
   ///
@@ -110,8 +88,8 @@ contract Users is AccessStore {
     signCheck(p.signer, p.signature);
 
     // Checking access rights
-    Access memory signerAccess = userAccess(users[p.signer].id, AccessKind.UserGroup, p.groupIDHash);
-    require(signerAccess.level == AccessLevel.Owner || signerAccess.level == AccessLevel.Admin, "DNY");
+    IAccessStore.Access memory signerAccess = IAccessStore(accessStore).userAccess(usersStore[p.signer].IDHash, IAccessStore.AccessKind.UserGroup, p.groupIDHash);
+    require(signerAccess.level == IAccessStore.AccessLevel.Owner || signerAccess.level == IAccessStore.AccessLevel.Admin, "DNY");
 
     // Checking group is exist
     require(userGroups[p.groupIDHash].attrs.length > 0, "NFD");
@@ -128,7 +106,7 @@ contract Users is AccessStore {
     }));
 
     // Adding the group's secret key
-    setAccess(keccak256(abi.encode(p.userIDHash, AccessKind.UserGroup)), Access({
+    IAccessStore(accessStore).setAccess(keccak256(abi.encode(p.userIDHash, IAccessStore.AccessKind.UserGroup)), IAccessStore.Access({
       idHash: p.groupIDHash,
       idEncr: signerAccess.idEncr,
       keyEncr: p.keyEncr,
@@ -148,8 +126,8 @@ contract Users is AccessStore {
     signCheck(signer, signature);
 
     // Checking access rights
-    Access memory signerAccess = userAccess(users[signer].id, AccessKind.UserGroup, groupIDHash);
-    require(signerAccess.level == AccessLevel.Owner || signerAccess.level == AccessLevel.Admin, "DNY");
+    IAccessStore.AccessLevel signerAccessLevel = IAccessStore(accessStore).userAccess(usersStore[signer].IDHash, IAccessStore.AccessKind.UserGroup, groupIDHash).level;
+    require(signerAccessLevel == IAccessStore.AccessLevel.Owner || signerAccessLevel == IAccessStore.AccessLevel.Admin, "DNY");
 
     // Removing a user from a group
     for(uint i; i < userGroups[groupIDHash].members.length; i++) {
@@ -160,7 +138,7 @@ contract Users is AccessStore {
     }
 
     // Removing a group's access key
-    require(setAccess(keccak256(abi.encode(userIDHash, AccessKind.UserGroup)), ZeroAccess) == 1,"NFD");
+    require(IAccessStore(accessStore).setAccess(keccak256(abi.encode(userIDHash, IAccessStore.AccessKind.UserGroup)), IAccessStore.Access(bytes32(0), new bytes(0), new bytes(0), IAccessStore.AccessLevel.NoAccess)) == 1, "NFD");
   }
 
   function userGroupGetByID(bytes32 groupIdHash) external view returns(UserGroup memory) {

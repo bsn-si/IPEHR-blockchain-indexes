@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 pragma solidity ^0.8.17;
 
-import "./Users.sol";
+import "./interfaces/IUsers.sol";
+import "./Docs.sol";
 
-contract DocGroups is Users {
+abstract contract DocGroups is Docs {
     struct DocumentGroup {
         mapping(bytes32 => bool) CIDHashes;
         mapping(Attributes.Code => bytes)   params;
@@ -29,18 +30,18 @@ contract DocGroups is Users {
         signCheck(p.signer, p.signature);
 
         // Checking the duplicate
-        bytes32 accessID = keccak256(abi.encode(p.groupIdHash, AccessKind.DocGroup));
-        require(getUserAccessList(accessID).length == 0, "AEX");
+        bytes32 accessID = keccak256(abi.encode(p.groupIdHash, IAccessStore.AccessKind.DocGroup));
+        require(IAccessStore(accessStore).getAccess(accessID).length == 0, "AEX");
 
-        User memory owner = users[p.signer];
-        require(owner.id != bytes32(0), "NFD");
+        bytes32 ownerIDHash = IUsers(users).getUser(p.signer).IDHash;
+        require(ownerIDHash != bytes32(0), "NFD");
 
         // List of users who have access to the group
-        setAccess(accessID, Access({
-            idHash: keccak256(abi.encode(owner.id)),
+        IAccessStore(accessStore).setAccess(accessID, IAccessStore.Access({
+            idHash: keccak256(abi.encode(ownerIDHash)),
             idEncr: p.userIdEncr,
             keyEncr: new bytes(0),
-            level: AccessLevel.Owner
+            level: IAccessStore.AccessLevel.Owner
         }));
 
         require(p.attrs.length > 0, "REQ");
@@ -50,12 +51,15 @@ contract DocGroups is Users {
         }
 
         // List of groups that the user has access to
-        setAccess(keccak256((abi.encode(owner.id, AccessKind.DocGroup))), Access({
-            idHash: p.groupIdHash,
-            idEncr: p.groupIdEncr,
-            keyEncr: p.keyEncr,
-            level: AccessLevel.Owner
-        }));
+        IAccessStore(accessStore).setAccess(
+            keccak256((abi.encode(ownerIDHash, IAccessStore.AccessKind.DocGroup))), 
+            IAccessStore.Access({
+                idHash: p.groupIdHash,
+                idEncr: p.groupIdEncr,
+                keyEncr: p.keyEncr,
+                level: IAccessStore.AccessLevel.Owner
+            })
+        );
     }
 
     function docGroupAddDoc(
@@ -70,16 +74,16 @@ contract DocGroups is Users {
         signCheck(signer, signature);
 
         // Checking user existence
-        User storage user = users[signer];
-        require(user.id != bytes32(0), "NFD");
+        bytes32 userIDHash = IUsers(users).getUser(signer).IDHash;
+        require(userIDHash != bytes32(0), "NFD");
 
         // Checking access
-        AccessLevel level = userAccess(
-            keccak256(abi.encode(user.id, AccessKind.DocGroup)), 
-            AccessKind.DocGroup, 
+        IAccessStore.AccessLevel level = IAccessStore(accessStore).userAccess(
+            keccak256(abi.encode(userIDHash, IAccessStore.AccessKind.DocGroup)), 
+            IAccessStore.AccessKind.DocGroup, 
             groupIdHash
         ).level;
-        require(level == AccessLevel.Owner || level == AccessLevel.Admin, "DND");
+        require(level == IAccessStore.AccessLevel.Owner || level == IAccessStore.AccessLevel.Admin, "DND");
 
         // Checking the duplicate
         require(docGroups[groupIdHash].CIDHashes[CIDHash] == false, "AEX");

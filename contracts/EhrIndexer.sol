@@ -1,14 +1,12 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 pragma solidity ^0.8.17;
 
-import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/Multicall.sol";
-import "./Users.sol";
-import "./Access.sol";
 import "./Docs.sol";
 import "./DocGroups.sol";
+import "./ImmutableState.sol";
 
-contract EhrIndexer is Ownable, Multicall, Users, Docs, DocGroups {
+contract EhrIndexer is Multicall, Docs, DocGroups {
     /**
       Error codes:
       REQ - incorrect request
@@ -21,6 +19,9 @@ contract EhrIndexer is Ownable, Multicall, Users, Docs, DocGroups {
       TMT - timeout
       NNC - wrong nonce
       SIG - invalid signature
+      LEN - incorrect length
+      OWN - caller is not the owner
   */
 
+  constructor(address _accessStore, address _users) ImmutableState(_accessStore, _users) {}
 }

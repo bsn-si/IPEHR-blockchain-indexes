@@ -1,31 +1,19 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 pragma solidity ^0.8.17;
 
-import "./Restrictable.sol";
+import "./interfaces/IAccessStore.sol";
 
-contract AccessStore is Restrictable {
-    enum AccessLevel { NoAccess, Owner, Admin, Read }
-    enum AccessKind { Doc, DocGroup, UserGroup }
+contract AccessStore is IAccessStore {
+    mapping(bytes32 => Access[]) accessStore;     // accessID => Access[]
 
-    struct Access {
-        bytes32      idHash;
-        bytes        idEncr;    // id encrypted by access key
-        bytes        keyEncr;   // access key encrypted by user private key
-        AccessLevel  level;
+    ///
+    function getAccess(bytes32 accessID) external view returns(Access[] memory) {
+        return accessStore[accessID];
     }
-
-    Access ZeroAccess = Access({
-        idHash: bytes32(0),
-        idEncr: new bytes(0),
-        keyEncr: new bytes(0),
-        level: AccessLevel.NoAccess
-    });
-
-    mapping(bytes32 => Access[]) private accessStore;     // accessID => Access[]
 
     ///
     // Returns 1 on update or 2 on insert
-    function setAccess(bytes32 accessID, Access memory o) internal returns(uint8)
+    function setAccess(bytes32 accessID, Access memory o) external returns(uint8)
     {
         for(uint i; i < accessStore[accessID].length; i++) {
             if (accessStore[accessID][i].idHash == o.idHash) {
@@ -53,13 +41,7 @@ contract AccessStore is Restrictable {
     }
 
     ///
-    function getUserAccessList(bytes32 accessID) public view returns (Access[] memory) 
-    {
-        return accessStore[accessID];
-    }
-
-    ///
-    function userAccess(bytes32 userID, AccessKind kind, bytes32 idHash) public view returns (Access memory) 
+    function userAccess(bytes32 userID, AccessKind kind, bytes32 idHash) external view returns (Access memory) 
     {
         bytes32 accessID = keccak256(abi.encode(userID, kind));
         for(uint i; i < accessStore[accessID].length; i++){
@@ -78,6 +60,6 @@ contract AccessStore is Restrictable {
             }
         }
 
-        return ZeroAccess;
+        return Access(bytes32(0), new bytes(0), new bytes(0), AccessLevel.NoAccess);
     }
 }

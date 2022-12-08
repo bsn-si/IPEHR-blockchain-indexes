@@ -1,21 +1,44 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 pragma solidity ^0.8.17;
 
-import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/cryptography/SignatureChecker.sol";
 
-contract Restrictable is Ownable {
+contract Restrictable {
+  address private _owner;
   mapping (address => bool) public allowedChange;
   mapping (address => uint) public nonces;
 
   constructor() {
+    _owner = msg.sender;
     allowedChange[msg.sender] = true;
+  }
+
+  modifier onlyOwner() {
+    _checkOwner();
+    _;
   }
 
   modifier onlyAllowed(address _addr) {
     require(allowedChange[_addr] == true, "Not allowed");
     _;
   }
+
+  function _checkOwner() internal view {
+    require(_owner == msg.sender, "OWN");
+  }
+
+  function setAllowed(address addr, bool allowed) public onlyOwner {
+    allowedChange[addr] = allowed;
+  }
+
+  function transferOwnership(address newOwner) public onlyOwner {
+        require(newOwner != address(0), "WTP");
+        _transferOwnership(newOwner);
+    }
+
+    function _transferOwnership(address newOwner) internal {
+        _owner = newOwner;
+    }
 
   function signCheck(address signer, bytes calldata signature) internal {
     nonces[signer]++;
@@ -27,9 +50,5 @@ contract Restrictable is Ownable {
     );
   
     require(valid == true, "SIG");
-  }
-
-  function setAllowed(address addr, bool allowed) external onlyOwner() {
-    allowedChange[addr] = allowed;
   }
 }
