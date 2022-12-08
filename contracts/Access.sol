@@ -1,9 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 pragma solidity ^0.8.17;
 
-import "./Restrictable.sol";
-
-contract AccessStore is Restrictable {
+contract AccessStore  {
     enum AccessLevel { NoAccess, Owner, Admin, Read }
     enum AccessKind { Doc, DocGroup, UserGroup }
 
@@ -21,7 +19,7 @@ contract AccessStore is Restrictable {
         level: AccessLevel.NoAccess
     });
 
-    mapping(bytes32 => Access[]) private accessStore;     // accessID => Access[]
+    mapping(bytes32 => Access[]) public accessStore;     // accessID => Access[]
 
     ///
     // Returns 1 on update or 2 on insert
@@ -50,12 +48,6 @@ contract AccessStore is Restrictable {
         }
 
         revert("NFD");
-    }
-
-    ///
-    function getUserAccessList(bytes32 accessID) public view returns (Access[] memory) 
-    {
-        return accessStore[accessID];
     }
 
     ///

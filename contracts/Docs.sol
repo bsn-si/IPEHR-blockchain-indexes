@@ -4,7 +4,6 @@ pragma solidity ^0.8.17;
 import "./Users.sol";
 
 contract Docs is Users {
-
     enum DocType {
         Ehr,            // 0
         EhrAccess,      // 1
@@ -29,7 +28,7 @@ contract Docs is Users {
 
     mapping (bytes32  => mapping(DocType => DocumentMeta[])) ehrDocs; // ehr_id -> docType -> DocumentMeta[]
     mapping (bytes32  => bytes32) public ehrSubject;  // subjectKey -> ehr_id
-    mapping (bytes32 => bool) cids;
+    mapping (bytes32 => bool) private cids;
 
     ///
     function setEhrSubject(
@@ -90,21 +89,23 @@ contract Docs is Users {
         require(cids[IDHash] == false, "AEX");
         cids[IDHash] = true;
 
-        ehrDocs[ehrId][p.docType].push();
-        DocumentMeta storage docMeta = ehrDocs[ehrId][p.docType][ehrDocs[ehrId][p.docType].length - 1];
+        uint i;
 
         if (p.docType == DocType.Ehr || p.docType == DocType.EhrStatus) {
-            for (uint i = 0; i < ehrDocs[ehrId][p.docType].length; i++) {
+            for (i = 0; i < ehrDocs[ehrId][p.docType].length; i++) {
                 ehrDocs[ehrId][p.docType][i].isLast = false;
             }
         } else if (p.docType == DocType.Composition || p.docType == DocType.Query) {
             bytes32 docBaseUIDHash = bytes32(Attributes.get(p.attrs, Attributes.Code.DocBaseUIDHash));
-            for (uint i = 0; i < ehrDocs[ehrId][p.docType].length; i++) {
+            for (i = 0; i < ehrDocs[ehrId][p.docType].length; i++) {
                 if (bytes32(Attributes.get(ehrDocs[ehrId][p.docType][i].attrs, Attributes.Code.DocBaseUIDHash)) == docBaseUIDHash) {
                     ehrDocs[ehrId][p.docType][i].isLast = false;
                 }
             }
         }
+
+        ehrDocs[ehrId][p.docType].push();
+        DocumentMeta storage docMeta = ehrDocs[ehrId][p.docType][ehrDocs[ehrId][p.docType].length - 1];
 
         docMeta.status = DocStatus.Active;
         docMeta.id = p.id;
@@ -112,7 +113,7 @@ contract Docs is Users {
         docMeta.timestamp = p.timestamp;
         docMeta.isLast = true;
 
-        for (uint i; i < p.attrs.length; i++) {
+        for (i = 0; i < p.attrs.length; i++) {
             docMeta.attrs.push(p.attrs[i]);
         }
 
@@ -199,8 +200,8 @@ contract Docs is Users {
     {    
         signCheck(signer, signature);
 
-        User memory user = users[userAddr];
-        require(user.IDHash != bytes32(0), "NFD");
+        bytes32 userIDHash = users[userAddr].IDHash;
+        require(userIDHash != bytes32(0), "NFD");
         require(users[signer].IDHash != bytes32(0), "NFD");
 
         // Checking access rights
@@ -208,7 +209,7 @@ contract Docs is Users {
             // Signer should be Owner or Admin of doc
             AccessLevel signerLevel = userAccess(users[signer].IDHash, AccessKind.Doc, CIDHash).level;
             require(signerLevel == AccessLevel.Owner || signerLevel == AccessLevel.Admin, "DND");
-            require(userAccess(user.IDHash, AccessKind.Doc, CIDHash).level != AccessLevel.Owner, "DND");
+            require(userAccess(userIDHash, AccessKind.Doc, CIDHash).level != AccessLevel.Owner, "DND");
         }
         
         // Request validation
@@ -217,7 +218,7 @@ contract Docs is Users {
         }
 
         // Set access
-        setAccess(keccak256(abi.encode(user.IDHash, AccessKind.Doc)), access);
+        setAccess(keccak256(abi.encode(userIDHash, AccessKind.Doc)), access);
     }
 
     ///
