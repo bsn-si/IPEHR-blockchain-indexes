@@ -30,7 +30,7 @@ contract DocGroups is Users {
 
         // Checking the duplicate
         bytes32 accessID = keccak256(abi.encode(p.groupIdHash, AccessKind.DocGroup));
-        require(getUserAccessList(accessID).length == 0, "AEX");
+        require(accessStore[accessID].length == 0, "AEX");
 
         User memory owner = users[p.signer];
         require(owner.IDHash != bytes32(0), "NFD");
@@ -70,12 +70,12 @@ contract DocGroups is Users {
         signCheck(signer, signature);
 
         // Checking user existence
-        User storage user = users[signer];
-        require(user.IDHash != bytes32(0), "NFD");
+        bytes32 userIDHash = users[signer].IDHash;
+        require(userIDHash != bytes32(0), "NFD");
 
         // Checking access
         AccessLevel level = userAccess(
-            keccak256(abi.encode(user.IDHash, AccessKind.DocGroup)), 
+            keccak256(abi.encode(userIDHash, AccessKind.DocGroup)), 
             AccessKind.DocGroup, 
             groupIdHash
         ).level;

@@ -3,8 +3,9 @@ pragma solidity ^0.8.17;
 
 import "./libraries/Attributes.sol";
 import "./Access.sol";
+import "./Restrictable.sol";
 
-contract Users is AccessStore {
+contract Users is AccessStore, Restrictable {
     enum Role { Patient, Doctor }
 
     struct User {
@@ -23,17 +24,17 @@ contract Users is AccessStore {
       GroupMember[] members;  
     }
 
-  mapping (address => User) users;
+  mapping (address => User) public users;
   mapping (bytes32 => bytes32) public ehrUsers; // userID -> ehrID
   mapping (bytes32 => UserGroup) userGroups;    // groupIdHash => UserGroup
 
   ///
-  function setEhrUser(bytes32 userId, bytes32 ehrId, address signer, bytes calldata signature) 
+  function setEhrUser(bytes32 IDHash, bytes32 ehrId, address signer, bytes calldata signature) 
     external onlyAllowed(msg.sender)
   {
     signCheck(signer, signature);
-    require(ehrUsers[userId] == bytes32(0), "AEX");
-    ehrUsers[userId] = ehrId;
+    require(ehrUsers[IDHash] == bytes32(0), "AEX");
+    ehrUsers[IDHash] = ehrId;
   }
 
   ///
@@ -67,39 +68,32 @@ contract Users is AccessStore {
   }
 
   ///
-  function getUser(address addr) external view returns(User memory) {
-    return(users[addr]);
-  }
-
-  struct UserGroupCreateParams {
-      bytes32     groupIdHash;
-      Attributes.Attribute[] attrs;
-      address     signer;
-      bytes       signature;
-  }
-
-  ///
-  function userGroupCreate(UserGroupCreateParams calldata p) 
+  function userGroupCreate(
+    bytes32 groupIdHash, 
+    Attributes.Attribute[] calldata attrs, 
+    address signer,
+    bytes calldata signature
+  ) 
       external onlyAllowed(msg.sender) 
   {
-    signCheck(p.signer, p.signature);
+    signCheck(signer, signature);
 
     // Checking user existence
-    require(users[p.signer].IDHash != bytes32(0), "NFD");
+    require(users[signer].IDHash != bytes32(0), "NFD");
 
     // Checking group absence
-    require(userGroups[p.groupIdHash].attrs.length == 0, "AEX");
+    require(userGroups[groupIdHash].attrs.length == 0, "AEX");
 
     // Creating a group
-    for (uint i; i < p.attrs.length; i++) {
-      userGroups[p.groupIdHash].attrs.push(p.attrs[i]);
+    for (uint i; i < attrs.length; i++) {
+      userGroups[groupIdHash].attrs.push(attrs[i]);
     }
 
     // Adding a groupID to a user's group list
-    setAccess(keccak256(abi.encode(users[p.signer].IDHash, AccessKind.UserGroup)), Access({
-      idHash: p.groupIdHash,
-      idEncr: Attributes.get(p.attrs, Attributes.Code.IDEncr),
-      keyEncr: Attributes.get(p.attrs, Attributes.Code.KeyEncr),
+    setAccess(keccak256(abi.encode(users[signer].IDHash, AccessKind.UserGroup)), Access({
+      idHash: groupIdHash,
+      idEncr: Attributes.get(attrs, Attributes.Code.IDEncr),
+      keyEncr: Attributes.get(attrs, Attributes.Code.KeyEncr),
       level: AccessLevel.Owner
     }));
   }
