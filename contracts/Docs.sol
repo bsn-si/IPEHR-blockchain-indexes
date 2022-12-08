@@ -1,9 +1,11 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 pragma solidity ^0.8.17;
 
-import "./Users.sol";
+import "./interfaces/IUsers.sol";
+import "./ImmutableState.sol";
+import "./Restrictable.sol";
 
-contract Docs is Users {
+abstract contract Docs is ImmutableState, Restrictable {
     enum DocType {
         Ehr,            // 0
         EhrAccess,      // 1
@@ -27,8 +29,23 @@ contract Docs is Users {
     }
 
     mapping (bytes32  => mapping(DocType => DocumentMeta[])) ehrDocs; // ehr_id -> docType -> DocumentMeta[]
-    mapping (bytes32  => bytes32) public ehrSubject;  // subjectKey -> ehr_id
+    mapping (bytes32 => bytes32) ehrUsers;              // userID -> ehrID
+    mapping (bytes32  => bytes32) public ehrSubject;    // subjectKey -> ehr_id
     mapping (bytes32 => bool) private cids;
+
+    ///
+    function setEhrUser(bytes32 IDHash, bytes32 ehrId, address signer, bytes calldata signature) 
+        external onlyAllowed(msg.sender)
+    {
+        signCheck(signer, signature);
+        require(ehrUsers[IDHash] == bytes32(0), "AEX");
+        ehrUsers[IDHash] = ehrId;
+    }
+
+    ///
+    function getEhrUser(bytes32 userIDHash) public view returns(bytes32) {
+        return ehrUsers[userIDHash];
+    }
 
     ///
     function setEhrSubject(
@@ -77,10 +94,10 @@ contract Docs is Users {
     {
         signCheck(p.signer, p.signature);
 
-        bytes32 userId = users[p.signer].IDHash;
-        require(userId != bytes32(0), "NFD1");
+        bytes32 userIDHash = IUsers(users).getUser(p.signer).IDHash;
+        require(userIDHash != bytes32(0), "NFD1");
 
-        bytes32 ehrId = ehrUsers[userId];
+        bytes32 ehrId = getEhrUser(userIDHash);
         require(ehrId != bytes32(0), "NFD2");
 
         require(p.id.length > 0, "REQ1");
@@ -119,11 +136,11 @@ contract Docs is Users {
 
         if (p.docType == DocType.Query) return;
         
-        setAccess(keccak256(abi.encode(userId, AccessKind.Doc)), Access({
+        IAccessStore(accessStore).setAccess(keccak256(abi.encode(userIDHash, IAccessStore.AccessKind.Doc)), IAccessStore.Access({
             idHash: IDHash,
             idEncr: Attributes.get(p.attrs, Attributes.Code.IDEncr),
             keyEncr: Attributes.get(p.attrs, Attributes.Code.KeyEncr),
-            level: AccessLevel.Admin
+            level: IAccessStore.AccessLevel.Admin
         }));
     }
 
@@ -191,7 +208,7 @@ contract Docs is Users {
     ///
     function setDocAccess(
         bytes32         CIDHash,
-        Access calldata access,
+        IAccessStore.Access calldata access,
         address         userAddr,
         address         signer,
         bytes calldata  signature
@@ -200,25 +217,27 @@ contract Docs is Users {
     {    
         signCheck(signer, signature);
 
-        bytes32 userIDHash = users[userAddr].IDHash;
+        bytes32 userIDHash = IUsers(users).getUser(userAddr).IDHash;
         require(userIDHash != bytes32(0), "NFD");
-        require(users[signer].IDHash != bytes32(0), "NFD");
+        
+        bytes32 signerIDHash = IUsers(users).getUser(signer).IDHash;
+        require(signerIDHash != bytes32(0), "NFD");
 
         // Checking access rights
         {
             // Signer should be Owner or Admin of doc
-            AccessLevel signerLevel = userAccess(users[signer].IDHash, AccessKind.Doc, CIDHash).level;
-            require(signerLevel == AccessLevel.Owner || signerLevel == AccessLevel.Admin, "DND");
-            require(userAccess(userIDHash, AccessKind.Doc, CIDHash).level != AccessLevel.Owner, "DND");
+            IAccessStore.AccessLevel signerLevel = IAccessStore(accessStore).userAccess(signerIDHash, IAccessStore.AccessKind.Doc, CIDHash).level;
+            require(signerLevel == IAccessStore.AccessLevel.Owner || signerLevel == IAccessStore.AccessLevel.Admin, "DND");
+            require(IAccessStore(accessStore).userAccess(userIDHash, IAccessStore.AccessKind.Doc, CIDHash).level != IAccessStore.AccessLevel.Owner, "DND");
         }
         
         // Request validation
-        if (access.level == AccessLevel.NoAccess) {
+        if (access.level == IAccessStore.AccessLevel.NoAccess) {
             require(access.keyEncr.length == 0 && access.idEncr.length == 0, "E01");
         }
 
         // Set access
-        setAccess(keccak256(abi.encode(userIDHash, AccessKind.Doc)), access);
+        IAccessStore(accessStore).setAccess(keccak256(abi.encode(userIDHash, IAccessStore.AccessKind.Doc)), access);
     }
 
     ///

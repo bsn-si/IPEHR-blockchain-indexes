@@ -2,40 +2,18 @@
 pragma solidity ^0.8.17;
 
 import "./libraries/Attributes.sol";
-import "./Access.sol";
+
+import "./interfaces/IAccessStore.sol";
+import "./interfaces/IUsers.sol";
+
 import "./Restrictable.sol";
+import "./ImmutableState.sol";
 
-contract Users is AccessStore, Restrictable {
-    enum Role { Patient, Doctor }
-
-    struct User {
-      bytes32   IDHash;
-      Role      role;
-      Attributes.Attribute[] attrs;
-    }
-
-    struct GroupMember {
-      bytes32 userIDHash;
-      bytes userIDEncr;    // userIDs encrypted by group key
-    }
-
-    struct UserGroup {
-      Attributes.Attribute[] attrs;
-      GroupMember[] members;  
-    }
-
-  mapping (address => User) public users;
-  mapping (bytes32 => bytes32) public ehrUsers; // userID -> ehrID
+contract Users is IUsers, ImmutableState, Restrictable {
+  mapping (address => User) usersStore;
   mapping (bytes32 => UserGroup) userGroups;    // groupIdHash => UserGroup
 
-  ///
-  function setEhrUser(bytes32 IDHash, bytes32 ehrId, address signer, bytes calldata signature) 
-    external onlyAllowed(msg.sender)
-  {
-    signCheck(signer, signature);
-    require(ehrUsers[IDHash] == bytes32(0), "AEX");
-    ehrUsers[IDHash] = ehrId;
-  }
+  constructor(address _accessStore) ImmutableState(_accessStore, address(this)) {}
 
   ///
   function userNew(
@@ -45,26 +23,32 @@ contract Users is AccessStore, Restrictable {
     Attributes.Attribute[] calldata attrs,
     address signer, 
     bytes calldata signature
-  ) external onlyAllowed(msg.sender) {
-
+  ) 
+    external onlyAllowed(msg.sender) 
+  {
     signCheck(signer, signature);
 
     // Checking user existence
-    require(users[addr].IDHash == bytes32(0), "AEX");
+    require(usersStore[addr].IDHash == bytes32(0), "AEX");
 
-    users[addr].IDHash = IDHash;
-    users[addr].role = role;
+    usersStore[addr].IDHash = IDHash;
+    usersStore[addr].role = role;
 
     for (uint i; i < attrs.length; i++) {
       if (attrs[i].code == Attributes.Code.Timestamp) continue;
-      users[addr].attrs.push(attrs[i]);
+      usersStore[addr].attrs.push(attrs[i]);
     }
 
     // Set timestamp
-    users[addr].attrs.push(Attributes.Attribute({
+    usersStore[addr].attrs.push(Attributes.Attribute({
       code: Attributes.Code.Timestamp,
       value: abi.encodePacked(block.timestamp)
     }));
+  }
+
+  ///
+  function getUser(address addr) external view returns(User memory) {
+    return usersStore[addr];
   }
 
   ///
@@ -79,7 +63,7 @@ contract Users is AccessStore, Restrictable {
     signCheck(signer, signature);
 
     // Checking user existence
-    require(users[signer].IDHash != bytes32(0), "NFD");
+    require(usersStore[signer].IDHash != bytes32(0), "NFD");
 
     // Checking group absence
     require(userGroups[groupIdHash].attrs.length == 0, "AEX");
@@ -90,22 +74,12 @@ contract Users is AccessStore, Restrictable {
     }
 
     // Adding a groupID to a user's group list
-    setAccess(keccak256(abi.encode(users[signer].IDHash, AccessKind.UserGroup)), Access({
+    IAccessStore(accessStore).setAccess(keccak256(abi.encode(usersStore[signer].IDHash, IAccessStore.AccessKind.UserGroup)), IAccessStore.Access({
       idHash: groupIdHash,
       idEncr: Attributes.get(attrs, Attributes.Code.IDEncr),
       keyEncr: Attributes.get(attrs, Attributes.Code.KeyEncr),
-      level: AccessLevel.Owner
+      level: IAccessStore.AccessLevel.Owner
     }));
-  }
-
-  struct GroupAddUserParams {
-    bytes32 groupIDHash;
-    bytes32 userIDHash;
-    AccessLevel level;
-    bytes userIDEncr;       // userID encrypted by group key
-    bytes keyEncr;          // group key encrypted by adding user public key
-    address signer;
-    bytes signature;
   }
 
   ///
@@ -114,8 +88,8 @@ contract Users is AccessStore, Restrictable {
     signCheck(p.signer, p.signature);
 
     // Checking access rights
-    Access memory signerAccess = userAccess(users[p.signer].IDHash, AccessKind.UserGroup, p.groupIDHash);
-    require(signerAccess.level == AccessLevel.Owner || signerAccess.level == AccessLevel.Admin, "DNY");
+    IAccessStore.Access memory signerAccess = IAccessStore(accessStore).userAccess(usersStore[p.signer].IDHash, IAccessStore.AccessKind.UserGroup, p.groupIDHash);
+    require(signerAccess.level == IAccessStore.AccessLevel.Owner || signerAccess.level == IAccessStore.AccessLevel.Admin, "DNY");
 
     // Checking group is exist
     require(userGroups[p.groupIDHash].attrs.length > 0, "NFD");
@@ -132,7 +106,7 @@ contract Users is AccessStore, Restrictable {
     }));
 
     // Adding the group's secret key
-    setAccess(keccak256(abi.encode(p.userIDHash, AccessKind.UserGroup)), Access({
+    IAccessStore(accessStore).setAccess(keccak256(abi.encode(p.userIDHash, IAccessStore.AccessKind.UserGroup)), IAccessStore.Access({
       idHash: p.groupIDHash,
       idEncr: signerAccess.idEncr,
       keyEncr: p.keyEncr,
@@ -152,8 +126,8 @@ contract Users is AccessStore, Restrictable {
     signCheck(signer, signature);
 
     // Checking access rights
-    Access memory signerAccess = userAccess(users[signer].IDHash, AccessKind.UserGroup, groupIDHash);
-    require(signerAccess.level == AccessLevel.Owner || signerAccess.level == AccessLevel.Admin, "DNY");
+    IAccessStore.AccessLevel signerAccessLevel = IAccessStore(accessStore).userAccess(usersStore[signer].IDHash, IAccessStore.AccessKind.UserGroup, groupIDHash).level;
+    require(signerAccessLevel == IAccessStore.AccessLevel.Owner || signerAccessLevel == IAccessStore.AccessLevel.Admin, "DNY");
 
     // Removing a user from a group
     for(uint i; i < userGroups[groupIDHash].members.length; i++) {
@@ -164,7 +138,7 @@ contract Users is AccessStore, Restrictable {
     }
 
     // Removing a group's access key
-    require(setAccess(keccak256(abi.encode(userIDHash, AccessKind.UserGroup)), ZeroAccess) == 1,"NFD");
+    require(IAccessStore(accessStore).setAccess(keccak256(abi.encode(userIDHash, IAccessStore.AccessKind.UserGroup)), IAccessStore.Access(bytes32(0), new bytes(0), new bytes(0), IAccessStore.AccessLevel.NoAccess)) == 1, "NFD");
   }
 
   function userGroupGetByID(bytes32 groupIdHash) external view returns(UserGroup memory) {
