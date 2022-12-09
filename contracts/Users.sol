@@ -6,10 +6,11 @@ import "./libraries/Attributes.sol";
 import "./interfaces/IAccessStore.sol";
 import "./interfaces/IUsers.sol";
 
+import "@openzeppelin/contracts/utils/Multicall.sol";
 import "./Restrictable.sol";
 import "./ImmutableState.sol";
 
-contract Users is IUsers, ImmutableState, Restrictable {
+contract Users is IUsers, ImmutableState, Restrictable, Multicall {
   mapping (address => User) usersStore;
   mapping (bytes32 => UserGroup) userGroups;    // groupIdHash => UserGroup
 
