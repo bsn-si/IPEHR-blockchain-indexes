@@ -107,12 +107,15 @@ contract Users is IUsers, ImmutableState, Restrictable, Multicall {
     }));
 
     // Adding the group's secret key
-    IAccessStore(accessStore).setAccess(keccak256(abi.encode(p.userIDHash, IAccessStore.AccessKind.UserGroup)), IAccessStore.Access({
-      idHash: p.groupIDHash,
-      idEncr: signerAccess.idEncr,
-      keyEncr: p.keyEncr,
-      level: p.level
-    }));
+    IAccessStore(accessStore).setAccess(
+      keccak256(abi.encode(p.userIDHash, IAccessStore.AccessKind.UserGroup)), 
+      IAccessStore.Access({
+        idHash: p.groupIDHash,
+        idEncr: signerAccess.idEncr,
+        keyEncr: p.keyEncr,
+        level: p.level
+      })
+    );
   }
 
   ///
@@ -130,7 +133,7 @@ contract Users is IUsers, ImmutableState, Restrictable, Multicall {
     IAccessStore.AccessLevel signerAccessLevel = IAccessStore(accessStore).userAccess(usersStore[signer].IDHash, IAccessStore.AccessKind.UserGroup, groupIDHash).level;
     require(signerAccessLevel == IAccessStore.AccessLevel.Owner || signerAccessLevel == IAccessStore.AccessLevel.Admin, "DNY");
 
-    // Removing a user from a group
+    // Removing the user from the group
     for(uint i; i < userGroups[groupIDHash].members.length; i++) {
       if (userGroups[groupIDHash].members[i].userIDHash == userIDHash) {
           userGroups[groupIDHash].members[i] = userGroups[groupIDHash].members[userGroups[groupIDHash].members.length-1];
@@ -139,7 +142,11 @@ contract Users is IUsers, ImmutableState, Restrictable, Multicall {
     }
 
     // Removing a group's access key
-    require(IAccessStore(accessStore).setAccess(keccak256(abi.encode(userIDHash, IAccessStore.AccessKind.UserGroup)), IAccessStore.Access(bytes32(0), new bytes(0), new bytes(0), IAccessStore.AccessLevel.NoAccess)) == 1, "NFD");
+    uint8 result = IAccessStore(accessStore).setAccess(
+      keccak256(abi.encode(userIDHash, IAccessStore.AccessKind.UserGroup)), 
+      IAccessStore.Access(groupIDHash, new bytes(0), new bytes(0), IAccessStore.AccessLevel.NoAccess)
+    );
+    require(result == 1, "NFD");
   }
 
   function userGroupGetByID(bytes32 groupIdHash) external view returns(UserGroup memory) {
