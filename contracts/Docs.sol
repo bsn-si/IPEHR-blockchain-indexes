@@ -131,6 +131,11 @@ abstract contract Docs is ImmutableState, Restrictable {
         docMeta.isLast = true;
 
         for (i = 0; i < p.attrs.length; i++) {
+            if (
+                p.attrs[i].code == Attributes.Code.IDEncr
+                //p.attrs[i].code == Attributes.Code.KeyEncr - used with Compositions GetList. Otherwise we mast to search for them in AccessStore
+            ) continue;
+            
             docMeta.attrs.push(p.attrs[i]);
         }
 
@@ -145,8 +150,11 @@ abstract contract Docs is ImmutableState, Restrictable {
     }
 
     ///
-    function getEhrDocs(bytes32 ehrId, DocType docType) public view returns(DocumentMeta[] memory) 
+    function getEhrDocs(bytes32 userIDHash, DocType docType) public view returns(DocumentMeta[] memory) 
     {
+        bytes32 ehrId = getEhrUser(userIDHash);
+        require(ehrId != bytes32(0), "NFD");
+
         return ehrDocs[ehrId][docType];
     }
 
@@ -266,4 +274,5 @@ abstract contract Docs is ImmutableState, Restrictable {
         }
         revert("NFD");
     }
+
 }

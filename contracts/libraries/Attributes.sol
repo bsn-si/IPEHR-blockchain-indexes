@@ -15,7 +15,8 @@ library Attributes {
         ContentEncr,           // 9
         DescriptionEncr,       // 10
         PasswordHash,          // 11
-        Timestamp              // 12
+        Timestamp,             // 12
+        NameEncr               // 13
     }
 
     struct Attribute {
