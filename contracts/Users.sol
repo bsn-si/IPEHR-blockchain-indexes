@@ -13,6 +13,7 @@ import "./ImmutableState.sol";
 contract Users is IUsers, ImmutableState, Restrictable, Multicall {
   mapping (address => User) usersStore;
   mapping (bytes32 => UserGroup) userGroups;    // groupIdHash => UserGroup
+  mapping (uint64 => address) userCodes;
 
   constructor(address _accessStore) ImmutableState(_accessStore, address(this)) {}
 
@@ -45,11 +46,22 @@ contract Users is IUsers, ImmutableState, Restrictable, Multicall {
       code: Attributes.Code.Timestamp,
       value: abi.encodePacked(block.timestamp)
     }));
+
+    if (role == Role.Doctor) {
+	  uint64 code = uint64(bytes8(IDHash)) % 99999999;
+      require(userCodes[code] == address(0), "AEX");
+      userCodes[code] = addr;
+    }
   }
 
   ///
   function getUser(address addr) external view returns(User memory) {
     return usersStore[addr];
+  }
+
+  ///
+  function getUserByCode(uint64 code) external view returns(User memory) {
+    return usersStore[userCodes[code]];
   }
 
   ///
