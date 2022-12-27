@@ -11,9 +11,10 @@ abstract contract Docs is ImmutableState, Restrictable {
         EhrAccess,      // 1
         EhrStatus ,     // 2
         Composition,    // 3
-        Query           // 4
-    
+        Query,          // 4
+        Template        // 5
     }
+    
     enum DocStatus { 
         Active,         // 0
         Deleted         // 1
@@ -97,7 +98,7 @@ abstract contract Docs is ImmutableState, Restrictable {
         bytes32 userIDHash = IUsers(users).getUser(p.signer).IDHash;
         require(userIDHash != bytes32(0), "NFD1");
 
-        bytes32 ehrId = getEhrUser(userIDHash);
+        bytes32 ehrId = ehrUsers[userIDHash];
         require(ehrId != bytes32(0), "NFD2");
 
         require(p.id.length > 0, "REQ1");
@@ -112,7 +113,7 @@ abstract contract Docs is ImmutableState, Restrictable {
             for (i = 0; i < ehrDocs[ehrId][p.docType].length; i++) {
                 ehrDocs[ehrId][p.docType][i].isLast = false;
             }
-        } else if (p.docType == DocType.Composition || p.docType == DocType.Query) {
+        } else if (p.docType != DocType.Ehr && p.docType != DocType.EhrAccess && p.docType != DocType.EhrStatus) {
             bytes32 docBaseUIDHash = bytes32(Attributes.get(p.attrs, Attributes.Code.DocBaseUIDHash));
             for (i = 0; i < ehrDocs[ehrId][p.docType].length; i++) {
                 if (bytes32(Attributes.get(ehrDocs[ehrId][p.docType][i].attrs, Attributes.Code.DocBaseUIDHash)) == docBaseUIDHash) {
@@ -199,18 +200,21 @@ abstract contract Docs is ImmutableState, Restrictable {
 
     ///
     function getDocLastByBaseID(
-        bytes32 ehrId, 
+        bytes32 userIDHash, 
         DocType docType, 
-        bytes32 docBaseUIDHash
+        bytes32 UIDHash
     ) 
         public view returns (DocumentMeta memory) 
     {
+        bytes32 ehrId = ehrUsers[userIDHash];
+        require(ehrId != bytes32(0), "NFD1");
+
         for (uint i = 0; i < ehrDocs[ehrId][docType].length; i++) {
-            if (bytes32(Attributes.get(ehrDocs[ehrId][docType][i].attrs, Attributes.Code.DocBaseUIDHash)) == docBaseUIDHash && 
+            if (bytes32(Attributes.get(ehrDocs[ehrId][docType][i].attrs, Attributes.Code.DocBaseUIDHash)) == UIDHash && 
                 ehrDocs[ehrId][docType][i].isLast) return ehrDocs[ehrId][docType][i];
         }
 
-        revert("NFD");
+        revert("NFD2");
     }
 
     ///
