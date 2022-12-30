@@ -4,6 +4,6 @@ The latest version of IPEHR smart-contracts `EhrIndexer`, `AccessStore`, `Users`
 
 | Contract                                                                                                       | Goerli Address |
 | -------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------ |
-| [EhrIndexer](https://github.com/bsn-si/IPEHR-blockchain-indexes/blob/develop/contracts/EhrIndexer.sol)         | `0xABeaebA82b0fA746999071482f7eAd65C42D847a`           |
-| [Users](https://github.com/bsn-si/IPEHR-blockchain-indexes/blob/develop/contracts/Users.sol)                   | `0x116bd8789F51D6103f34415Ef6D6644A6f561F9d`           |
-| [AccessStore](https://github.com/bsn-si/IPEHR-blockchain-indexes/blob/develop/contracts/AccessStore.sol)       | `0x9835DB0bc580e1CF1a560Cf353A44B8bbb1550dB`           |
+| [EhrIndexer](https://github.com/bsn-si/IPEHR-blockchain-indexes/blob/develop/contracts/EhrIndexer.sol)         | `0x82E5eA5248C9b952614dfe54f3DedaC52F117948`           |
+| [Users](https://github.com/bsn-si/IPEHR-blockchain-indexes/blob/develop/contracts/Users.sol)                   | `0x4Dc1edF8aD574D644e216f33521cd17d992BAf52`           |
+| [AccessStore](https://github.com/bsn-si/IPEHR-blockchain-indexes/blob/develop/contracts/AccessStore.sol)       | `0x39F07E42749C15Ad57Af02F647D6C088115359C2`           |
