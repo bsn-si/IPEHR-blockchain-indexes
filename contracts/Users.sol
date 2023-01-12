@@ -9,7 +9,6 @@ import "./interfaces/IUsers.sol";
 import "@openzeppelin/contracts/utils/Multicall.sol";
 import "./Restrictable.sol";
 import "./ImmutableState.sol";
-import "hardhat/console.sol";
 
 contract Users is IUsers, ImmutableState, Restrictable, Multicall {
   mapping (address => User) usersStore;
@@ -33,9 +32,6 @@ contract Users is IUsers, ImmutableState, Restrictable, Multicall {
 
     // Checking user existence
     require(usersStore[addr].IDHash == bytes32(0), "AEX");
-
-	console.log(addr);
-	console.logBytes32(IDHash);
 
     usersStore[addr].IDHash = IDHash;
     usersStore[addr].role = role;

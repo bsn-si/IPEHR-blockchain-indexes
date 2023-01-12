@@ -16,7 +16,9 @@ library Attributes {
         DescriptionEncr,       // 10
         PasswordHash,          // 11
         Timestamp,             // 12
-        NameEncr               // 13
+        NameEncr,              // 13
+        GroupDoctorsIDHash,    // 14
+        GroupAllDocsIDHash     // 15
     }
 
     struct Attribute {

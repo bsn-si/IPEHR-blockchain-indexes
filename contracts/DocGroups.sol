@@ -6,20 +6,21 @@ import "./Docs.sol";
 
 abstract contract DocGroups is Docs {
     struct DocumentGroup {
-        mapping(bytes32 => bool) CIDHashes;
-        mapping(Attributes.Code => bytes)   params;
-        bytes[]     CIDEncrs;   // CIDs encrypted with the group key 
-        bytes32[]   userGroups;
+        mapping(bytes32 => bool)          CIDHashes;
+        Attributes.Attribute[]            attrs;
+        bytes[]                           CIDEncrs;   // CIDs encrypted with the group key 
+        bytes32[]                         userGroups; // userGroups that have access to this group
     }
 
     mapping (bytes32 => DocumentGroup) docGroups;  // idHash => DocumentGroup
 
     struct DocGroupCreateParams {
-        bytes32     groupIdHash;
-        bytes       groupIdEncr;     // group id  encrypted with user pub key
-        bytes       keyEncr;         // group key encrypted with user pub key
-        bytes       userIdEncr;      // user id   encrypted with group key
+        bytes32     groupIDHash;       
+        //bytes       userIDEncr;      // user id   encrypted with group key
         Attributes.Attribute[] attrs;
+            // group id  encrypted with user pub key
+            // group key encrypted with user pub key
+        
         address     signer;
         bytes       signature;
     }
@@ -29,43 +30,44 @@ abstract contract DocGroups is Docs {
     {
         signCheck(p.signer, p.signature);
 
-        // Checking the duplicate
-        bytes32 accessID = keccak256(abi.encode(p.groupIdHash, IAccessStore.AccessKind.DocGroup));
-        require(IAccessStore(accessStore).getAccess(accessID).length == 0, "AEX");
+        // Checking the duplicate        
+        require(Attributes.get(docGroups[p.groupIDHash].attrs, Attributes.Code.NameEncr).length == 0, "AEX");
 
         bytes32 ownerIDHash = IUsers(users).getUser(p.signer).IDHash;
         require(ownerIDHash != bytes32(0), "NFD");
 
-        // List of users who have access to the group
-        IAccessStore(accessStore).setAccess(accessID, IAccessStore.Access({
-            idHash: keccak256(abi.encode(ownerIDHash)),
-            idEncr: p.userIdEncr,
-            keyEncr: new bytes(0),
-            level: IAccessStore.AccessLevel.Owner
-        }));
+        // Set owner access
+        //IAccessStore(accessStore).setAccess(
+        //    accessID, 
+        //   IAccessStore.Access({
+        //        idHash: keccak256(abi.encode(ownerIDHash)),
+        //        idEncr: p.userIdEncr,
+        //        keyEncr: Attributes.get(p.attrs, Attributes.Code.KeyEncr),
+        //        level: IAccessStore.AccessLevel.Owner
+        //    }
+        //));
 
         require(p.attrs.length > 0, "REQ");
 
-        for (uint i; i < p.attrs.length; i++){
-            docGroups[p.groupIdHash].params[p.attrs[i].code] = p.attrs[i].value;
+        for (uint i; i < p.attrs.length; i++) {
+            docGroups[p.groupIDHash].attrs.push(p.attrs[i]);
         }
 
-        // List of groups that the user has access to
         IAccessStore(accessStore).setAccess(
             keccak256((abi.encode(ownerIDHash, IAccessStore.AccessKind.DocGroup))), 
             IAccessStore.Access({
-                idHash: p.groupIdHash,
-                idEncr: p.groupIdEncr,
-                keyEncr: p.keyEncr,
+                idHash: p.groupIDHash,
+                idEncr: Attributes.get(p.attrs, Attributes.Code.IDEncr),
+                keyEncr: Attributes.get(p.attrs, Attributes.Code.KeyEncr),
                 level: IAccessStore.AccessLevel.Owner
             })
         );
     }
 
     function docGroupAddDoc(
-        bytes32 groupIdHash,
-        bytes32 CIDHash,
-        bytes calldata CIDEncr,
+        bytes32 groupIDHash,
+        bytes32 docCIDHash,
+        bytes calldata docCIDEncr,
         address signer,
         bytes calldata signature
     ) 
@@ -79,20 +81,24 @@ abstract contract DocGroups is Docs {
 
         // Checking access
         IAccessStore.AccessLevel level = IAccessStore(accessStore).userAccess(
-            keccak256(abi.encode(userIDHash, IAccessStore.AccessKind.DocGroup)), 
+            userIDHash, 
             IAccessStore.AccessKind.DocGroup, 
-            groupIdHash
+            groupIDHash
         ).level;
         require(level == IAccessStore.AccessLevel.Owner || level == IAccessStore.AccessLevel.Admin, "DND");
 
         // Checking the duplicate
-        require(docGroups[groupIdHash].CIDHashes[CIDHash] == false, "AEX");
+        require(docGroups[groupIDHash].CIDHashes[docCIDHash] == false, "AEX");
 
-        docGroups[groupIdHash].CIDHashes[CIDHash] = true;
-        docGroups[groupIdHash].CIDEncrs.push(CIDEncr);
-  }
+        docGroups[groupIDHash].CIDHashes[docCIDHash] = true;
+        docGroups[groupIDHash].CIDEncrs.push(docCIDEncr);
+    }
 
     function docGroupGetDocs(bytes32 groupIdHash) external view returns (bytes[] memory) {
         return docGroups[groupIdHash].CIDEncrs;
+    }
+
+    function docGroupGetAttrs(bytes32 groupIdHash) external view returns (Attributes.Attribute[] memory) {
+        return docGroups[groupIdHash].attrs;
     }
 }
