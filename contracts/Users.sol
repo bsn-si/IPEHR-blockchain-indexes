@@ -15,7 +15,7 @@ contract Users is IUsers, ImmutableState, Restrictable, Multicall {
   mapping (bytes32 => UserGroup) userGroups;    // groupIdHash => UserGroup
   mapping (uint64 => address) userCodes;
 
-  constructor(address _accessStore) ImmutableState(_accessStore, address(this)) {}
+  constructor(address _accessStore) ImmutableState(_accessStore, address(this), address(uint160(0))) {}
 
   ///
   function userNew(
@@ -48,7 +48,7 @@ contract Users is IUsers, ImmutableState, Restrictable, Multicall {
     }));
 
     if (role == Role.Doctor) {
-	  uint64 code = uint64(bytes8(IDHash)) % 99999999;
+      uint64 code = uint64(bytes8(IDHash)) % 99999999;
       require(userCodes[code] == address(0), "AEX");
       userCodes[code] = addr;
     }
@@ -165,4 +165,3 @@ contract Users is IUsers, ImmutableState, Restrictable, Multicall {
     return(userGroups[groupIdHash]);
   }
 }
-

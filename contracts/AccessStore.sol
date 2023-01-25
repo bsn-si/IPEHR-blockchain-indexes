@@ -4,7 +4,11 @@ pragma solidity ^0.8.17;
 import "./interfaces/IAccessStore.sol";
 
 contract AccessStore is IAccessStore {
-    mapping(bytes32 => Access[]) accessStore;     // accessID => Access[]
+    /**
+    * accessID => Access[]
+    * accessID is keccak256(objectID+AccessKind)
+    */
+    mapping(bytes32 => Access[]) accessStore;
 
     ///
     function getAccess(bytes32 accessID) external view returns(Access[] memory) {

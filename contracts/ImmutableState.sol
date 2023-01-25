@@ -6,9 +6,11 @@ import "./interfaces/IImmutableState.sol";
 abstract contract ImmutableState is IImmutableState {
     address public immutable accessStore;
     address public immutable users;
+    address public immutable ehrIndex;
 
-    constructor(address _accessStore, address _users) {
+    constructor(address _accessStore, address _users, address _ehrIndex) {
         accessStore = _accessStore;
         users = _users;
+        ehrIndex = _ehrIndex;
     }
 }
