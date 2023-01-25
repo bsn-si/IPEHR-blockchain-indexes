@@ -12,7 +12,8 @@ abstract contract Docs is ImmutableState, Restrictable {
         EhrStatus ,     // 2
         Composition,    // 3
         Query,          // 4
-        Template        // 5
+        Template,        // 5
+        Directory        // 6
     }
     
     enum DocStatus { 
