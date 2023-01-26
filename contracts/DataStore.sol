@@ -14,7 +14,6 @@ contract DataStore is ImmutableState, Restrictable {
     constructor(address _accessStore, address _users, address _ehrIndex) ImmutableState(_accessStore, _users, _ehrIndex) {}
 
     struct DataSet  {
-        bytes   data;
         Attributes.Attribute[] attrs;
     }
 
@@ -38,9 +37,7 @@ contract DataStore is ImmutableState, Restrictable {
         require(data.length > 0, "LEN");
 
         bytes32 dataHash = keccak256(abi.encode(data));
-        require(dataStore[dataHash].data.length == 0, "AEX");
-
-        dataStore[dataHash].data = data;
+        require(Attributes.get(dataStore[dataHash].attrs, Attributes.Code.Content).length == 0, "AEX");
 
         for (uint i; i < attrs.length; i++) {
             dataStore[dataHash].attrs.push(attrs[i]);
