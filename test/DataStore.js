@@ -1,4 +1,3 @@
-const { expect } = require("chai");
 const { loadFixture } = require("@nomicfoundation/hardhat-network-helpers");
 const secp256k1 = require('secp256k1');
 const assert = require('assert');
@@ -17,29 +16,25 @@ function toHexString(byteArray) {
 
 const getSignedMessage = async (payload, pk, nonce) => {
     payload = payload.slice(0, payload.length - 97*2);
-
     const payloadHash = ethers.utils.keccak256(payload);
-
-        nonce++;
-
-        const prefixed = ethers.utils.solidityPack(
-                ["string", "bytes32", "uint"],
-                ["\x19Ethereum Signed Message:\n32", payloadHash, nonce]
-        );
-
+    nonce++;
+    const prefixed = ethers.utils.solidityPack(
+        ["string", "bytes32", "uint"],
+        ["\x19Ethereum Signed Message:\n32", payloadHash, nonce]
+    );
     const prefixedHash = ethers.utils.keccak256(prefixed);
 
-        var sig = secp256k1.ecdsaSign(
-                ethers.utils.arrayify(prefixedHash),
-                ethers.utils.arrayify(pk)
-        );
+    var sig = secp256k1.ecdsaSign(
+        ethers.utils.arrayify(prefixedHash),
+        ethers.utils.arrayify(pk)
+    );
 
-        var ret = {}
-        ret.r = sig.signature.slice(0, 32)
-        ret.s = sig.signature.slice(32, 64)
-        ret.v = sig.recid + 27
+    var ret = {}
+    ret.r = sig.signature.slice(0, 32)
+    ret.s = sig.signature.slice(32, 64)
+    ret.v = sig.recid + 27
 
-        const signature = "0x" + toHexString(ret.r) + toHexString(ret.s) + toHexString([ret.v])
+    const signature = "0x" + toHexString(ret.r) + toHexString(ret.s) + toHexString([ret.v])
 
     return signature
 };
@@ -72,23 +67,22 @@ describe("DataStore contract", function () {
         const dataStore = await DataStore.deploy(users.address);
         await dataStore.deployed();
 
+        const wallet = new ethers.Wallet(ownerPrivateKey);
+        const pk = wallet.privateKey;
 
-		const wallet = new ethers.Wallet(ownerPrivateKey);
-		const pk = wallet.privateKey;
-
-		// User registering
-		var params = [
-				owner.address,
-				ethers.utils.keccak256(ethers.utils.toUtf8Bytes("owner" + "systemID")),
-				0,
-				[],
-				owner.address
-		]
+        // User registering
+        var params = [
+            owner.address,
+            ethers.utils.keccak256(ethers.utils.toUtf8Bytes("owner" + "systemID")),
+            0,
+            [],
+            owner.address
+        ]
 
         const payload = users.interface.encodeFunctionData('userNew', [...params, new Uint8Array(65)])
         const signature = getSignedMessage(payload, pk, 0)
 
-                await users.userNew(...params, signature)
+        await users.userNew(...params, signature)
 
         return { users, dataStore, owner, pk };
     }
@@ -103,12 +97,12 @@ describe("DataStore contract", function () {
         const signature = getSignedMessage(payload, pk, nonce)
 
         const tx = await dataStore.dataUpdate(attrs, owner.address, signature)
-		const receipt = await tx.wait()
-		const events = receipt.events;
+        const receipt = await tx.wait()
+        const events = receipt.events;
 
-		assert.ok(Array.isArray(events));
-		assert.equal(events.length, 1);
-		assert.equal(events[0].event, 'DataUpdate');
-		assert.equal(events[0].args.data, '0x010203');
+        assert.ok(Array.isArray(events));
+        assert.equal(events.length, 1);
+        assert.equal(events[0].event, 'DataUpdate');
+        assert.equal(events[0].args.data, '0x010203');
     })
 })
