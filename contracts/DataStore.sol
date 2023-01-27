@@ -4,14 +4,13 @@ pragma solidity ^0.8.17;
 import "./libraries/Attributes.sol";
 
 import "./interfaces/IUsers.sol";
-import "./interfaces/IDocs.sol";
 
 import "./ImmutableState.sol";
 import "./Restrictable.sol";
 
 contract DataStore is ImmutableState, Restrictable {
 
-    constructor(address _accessStore, address _users, address _ehrIndex) ImmutableState(_accessStore, _users, _ehrIndex) {}
+    constructor(address _users) ImmutableState(address(uint160(0)), _users, address(uint160(0))) {}
 
     struct DataSet  {
         Attributes.Attribute[] attrs;
