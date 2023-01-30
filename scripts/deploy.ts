@@ -42,6 +42,15 @@ async function main() {
   const ehrIndexer = await EhrIndexer.deploy(accessStore.address, users.address);
   await ehrIndexer.deployed();
   console.log("EhrIndexer deployed to:", ehrIndexer.address);
+
+  const DataStore = await ethers.getContractFactory("DataStore", {
+      libraries: {
+        Attributes: Lib.address
+      }
+  });
+  const dataStore = await DataStore.deploy(users.address);
+  await dataStore.deployed();
+  console.log("DataStore deployed to:", dataStore.address);
 }
 
 // We recommend this pattern to be able to use async/await everywhere

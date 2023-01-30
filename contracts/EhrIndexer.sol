@@ -23,5 +23,5 @@ contract EhrIndexer is Multicall, Docs, DocGroups {
       OWN - caller is not the owner
   */
 
-  constructor(address _accessStore, address _users) ImmutableState(_accessStore, _users) {}
+  constructor(address _accessStore, address _users) ImmutableState(_accessStore, _users, address(this)) {}
 }

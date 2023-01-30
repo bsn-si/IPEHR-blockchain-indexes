@@ -2,35 +2,13 @@
 pragma solidity ^0.8.17;
 
 import "./interfaces/IUsers.sol";
+import "./interfaces/IDocs.sol";
 import "./ImmutableState.sol";
 import "./Restrictable.sol";
 
 abstract contract Docs is ImmutableState, Restrictable {
-    enum DocType {
-        Ehr,            // 0
-        EhrAccess,      // 1
-        EhrStatus ,     // 2
-        Composition,    // 3
-        Query,          // 4
-        Template,        // 5
-        Directory        // 6
-    }
-    
-    enum DocStatus { 
-        Active,         // 0
-        Deleted         // 1
-    }
 
-    struct DocumentMeta {
-        DocStatus   status;
-        bytes       id;
-        bytes       version;
-        uint32      timestamp;
-        bool        isLast;
-        Attributes.Attribute[] attrs; 
-    }
-
-    mapping (bytes32  => mapping(DocType => DocumentMeta[])) ehrDocs; // ehr_id -> docType -> DocumentMeta[]
+    mapping (bytes32  => mapping(IDocs.Type => IDocs.DocumentMeta[])) ehrDocs; // ehr_id -> docType -> DocumentMeta[]
     mapping (bytes32 => bytes32) ehrUsers;              // userID -> ehrID
     mapping (bytes32  => bytes32) public ehrSubject;    // subjectKey -> ehr_id
     mapping (bytes32 => bool) private cids;
@@ -65,7 +43,7 @@ abstract contract Docs is ImmutableState, Restrictable {
     ///
     function setEhrDocAttr(
         bytes32 ehrId, 
-        DocType docType, 
+        IDocs.Type docType, 
         uint index, 
         Attributes.Code attrCode, 
         bytes memory value
@@ -79,19 +57,9 @@ abstract contract Docs is ImmutableState, Restrictable {
             }
         }
     }
-
-    struct AddEhrDocParams {
-        DocType     docType;
-        bytes       id;
-        bytes       version;
-        uint32      timestamp;
-        Attributes.Attribute[] attrs;
-        address     signer;
-        bytes       signature;
-    }
     
     ///
-    function addEhrDoc(AddEhrDocParams calldata p) 
+    function addEhrDoc(IDocs.AddEhrDocParams calldata p) 
         external onlyAllowed(msg.sender) 
     {
         signCheck(p.signer, p.signature);
@@ -110,11 +78,11 @@ abstract contract Docs is ImmutableState, Restrictable {
 
         uint i;
 
-        if (p.docType == DocType.Ehr || p.docType == DocType.EhrStatus) {
+        if (p.docType == IDocs.Type.Ehr || p.docType == IDocs.Type.EhrStatus) {
             for (i = 0; i < ehrDocs[ehrId][p.docType].length; i++) {
                 ehrDocs[ehrId][p.docType][i].isLast = false;
             }
-        } else if (p.docType != DocType.Ehr && p.docType != DocType.EhrAccess && p.docType != DocType.EhrStatus) {
+        } else if (p.docType != IDocs.Type.Ehr && p.docType != IDocs.Type.EhrAccess && p.docType != IDocs.Type.EhrStatus) {
             bytes32 docBaseUIDHash = bytes32(Attributes.get(p.attrs, Attributes.Code.DocBaseUIDHash));
             for (i = 0; i < ehrDocs[ehrId][p.docType].length; i++) {
                 if (bytes32(Attributes.get(ehrDocs[ehrId][p.docType][i].attrs, Attributes.Code.DocBaseUIDHash)) == docBaseUIDHash) {
@@ -124,9 +92,9 @@ abstract contract Docs is ImmutableState, Restrictable {
         }
 
         ehrDocs[ehrId][p.docType].push();
-        DocumentMeta storage docMeta = ehrDocs[ehrId][p.docType][ehrDocs[ehrId][p.docType].length - 1];
+        IDocs.DocumentMeta storage docMeta = ehrDocs[ehrId][p.docType][ehrDocs[ehrId][p.docType].length - 1];
 
-        docMeta.status = DocStatus.Active;
+        docMeta.status = IDocs.Status.Active;
         docMeta.id = p.id;
         docMeta.version = p.version;
         docMeta.timestamp = p.timestamp;
@@ -141,18 +109,21 @@ abstract contract Docs is ImmutableState, Restrictable {
             docMeta.attrs.push(p.attrs[i]);
         }
 
-        if (p.docType == DocType.Query) return;
+        if (p.docType == IDocs.Type.Query) return;
         
-        IAccessStore(accessStore).setAccess(keccak256(abi.encode(userIDHash, IAccessStore.AccessKind.Doc)), IAccessStore.Access({
-            idHash: IDHash,
-            idEncr: Attributes.get(p.attrs, Attributes.Code.IDEncr),
-            keyEncr: Attributes.get(p.attrs, Attributes.Code.KeyEncr),
-            level: IAccessStore.AccessLevel.Admin
-        }));
+        IAccessStore(accessStore).setAccess(
+            keccak256(abi.encode(userIDHash, IAccessStore.AccessKind.Doc)), 
+            IAccessStore.Access({
+                idHash: IDHash,
+                idEncr: Attributes.get(p.attrs, Attributes.Code.IDEncr),
+                keyEncr: Attributes.get(p.attrs, Attributes.Code.KeyEncr),
+                level: IAccessStore.AccessLevel.Admin
+            }
+        ));
     }
 
     ///
-    function getEhrDocs(bytes32 userIDHash, DocType docType) public view returns(DocumentMeta[] memory) 
+    function getEhrDocs(bytes32 userIDHash, IDocs.Type docType) public view returns(IDocs.DocumentMeta[] memory) 
     {
         bytes32 ehrId = getEhrUser(userIDHash);
         require(ehrId != bytes32(0), "NFD");
@@ -161,7 +132,7 @@ abstract contract Docs is ImmutableState, Restrictable {
     }
 
     ///
-    function getLastEhrDocByType(bytes32 ehrId, DocType docType) public view returns(DocumentMeta memory) {
+    function getLastEhrDocByType(bytes32 ehrId, IDocs.Type docType) public view returns(IDocs.DocumentMeta memory) {
         for (uint i = 0; i < ehrDocs[ehrId][docType].length; i++) {
             if (ehrDocs[ehrId][docType][i].isLast == true ) {
                 return ehrDocs[ehrId][docType][i];
@@ -173,11 +144,11 @@ abstract contract Docs is ImmutableState, Restrictable {
     ///
     function getDocByVersion(
         bytes32 ehrId,
-        DocType docType,
+        IDocs.Type docType,
         bytes32 docBaseUIDHash,
         bytes32 version
     )
-        public view returns (DocumentMeta memory) 
+        public view returns (IDocs.DocumentMeta memory) 
     {
         for (uint i = 0; i < ehrDocs[ehrId][docType].length; i++) {
             if (bytes32(Attributes.get(ehrDocs[ehrId][docType][i].attrs, Attributes.Code.DocBaseUIDHash)) == docBaseUIDHash && 
@@ -187,8 +158,8 @@ abstract contract Docs is ImmutableState, Restrictable {
     }
 
     ///
-    function getDocByTime(bytes32 ehrID, DocType docType, uint32 timestamp)
-        public view returns (DocumentMeta memory)
+    function getDocByTime(bytes32 ehrID, IDocs.Type docType, uint32 timestamp)
+        public view returns (IDocs.DocumentMeta memory)
     {
         for (uint i = 0; i < ehrDocs[ehrID][docType].length; i++) {
             if (ehrDocs[ehrID][docType][i].timestamp <= timestamp && ehrDocs[ehrID][docType][i].timestamp > 0) {
@@ -201,11 +172,11 @@ abstract contract Docs is ImmutableState, Restrictable {
 
     ///
     function getDocLastByBaseID(
-        bytes32 userIDHash, 
-        DocType docType, 
-        bytes32 UIDHash
+        bytes32    userIDHash, 
+        IDocs.Type docType, 
+        bytes32    UIDHash
     ) 
-        public view returns (DocumentMeta memory) 
+        public view returns (IDocs.DocumentMeta memory) 
     {
         bytes32 ehrId = ehrUsers[userIDHash];
         require(ehrId != bytes32(0), "NFD1");
@@ -231,17 +202,17 @@ abstract contract Docs is ImmutableState, Restrictable {
         signCheck(signer, signature);
 
         bytes32 userIDHash = IUsers(users).getUser(userAddr).IDHash;
-        require(userIDHash != bytes32(0), "NFD");
+        require(userIDHash != bytes32(0), "NFD1");
         
         bytes32 signerIDHash = IUsers(users).getUser(signer).IDHash;
-        require(signerIDHash != bytes32(0), "NFD");
+        require(signerIDHash != bytes32(0), "NFD2");
 
         // Checking access rights
         {
             // Signer should be Owner or Admin of doc
             IAccessStore.AccessLevel signerLevel = IAccessStore(accessStore).userAccess(signerIDHash, IAccessStore.AccessKind.Doc, CIDHash).level;
-            require(signerLevel == IAccessStore.AccessLevel.Owner || signerLevel == IAccessStore.AccessLevel.Admin, "DND");
-            require(IAccessStore(accessStore).userAccess(userIDHash, IAccessStore.AccessKind.Doc, CIDHash).level != IAccessStore.AccessLevel.Owner, "DND");
+            require(signerLevel == IAccessStore.AccessLevel.Owner || signerLevel == IAccessStore.AccessLevel.Admin, "DND1");
+            require(IAccessStore(accessStore).userAccess(userIDHash, IAccessStore.AccessKind.Doc, CIDHash).level != IAccessStore.AccessLevel.Owner, "DND2");
         }
         
         // Request validation
@@ -255,11 +226,11 @@ abstract contract Docs is ImmutableState, Restrictable {
 
     ///
     function deleteDoc(
-        bytes32 ehrId, 
-        DocType docType, 
-        bytes32 docBaseUIDHash, 
-        bytes32 version,
-        address signer,
+        bytes32    ehrId, 
+        IDocs.Type docType, 
+        bytes32    docBaseUIDHash, 
+        bytes32    version,
+        address    signer,
         bytes calldata  signature
     ) 
         external onlyAllowed(msg.sender)
@@ -272,8 +243,8 @@ abstract contract Docs is ImmutableState, Restrictable {
             if (bytes32(Attributes.get(ehrDocs[ehrId][docType][i].attrs, Attributes.Code.DocBaseUIDHash)) == docBaseUIDHash && 
                 bytes32(ehrDocs[ehrId][docType][i].version) == version) 
             {
-                require (ehrDocs[ehrId][docType][i].status != DocStatus.Deleted, "ADL");
-                ehrDocs[ehrId][docType][i].status = DocStatus.Deleted;
+                require (ehrDocs[ehrId][docType][i].status != IDocs.Status.Deleted, "ADL");
+                ehrDocs[ehrId][docType][i].status = IDocs.Status.Deleted;
                 return;
             }
         }
