@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 pragma solidity ^0.8.17;
 
-import "./libraries/Attributes.sol";
-
 import "./interfaces/IUsers.sol";
 
 import "./ImmutableState.sol";
@@ -16,32 +14,31 @@ contract DataStore is ImmutableState, Restrictable {
         Attributes.Attribute[] attrs;
     }
 
-    mapping (bytes32 => DataSet) dataStore;     // dataHash -> DataSet
+    mapping(bytes32 => bool) private history;
 
-    event DataUpdate(bytes data);
+    event DataUpdate(bytes32 groupID, bytes32 dataID, bytes32 ehrID, bytes data);
 
     ///
     function dataUpdate(
-        Attributes.Attribute[] calldata attrs, 
-        address signer, 
+        bytes32 groupID,
+        bytes32 dataID,
+        bytes32 ehrID,      // TODO remove after Treeindex refactoring
+        bytes calldata data,
+        address signer,
         bytes calldata signature
-    ) 
-        external 
+    )
+        external onlyAllowed(msg.sender) 
     {
         signCheck(signer, signature);
 
         require(IUsers(users).getUser(signer).IDHash != bytes32(0), "NFD");
-
-        bytes memory data = Attributes.get(attrs, Attributes.Code.Content);
         require(data.length > 0, "LEN");
 
-        bytes32 dataHash = keccak256(abi.encode(data));
-        require(Attributes.get(dataStore[dataHash].attrs, Attributes.Code.Content).length == 0, "AEX");
+        bytes32 dataHash = keccak256(abi.encode(dataID, data));
+        require(history[dataHash] == false, "AEX");
 
-        for (uint i; i < attrs.length; i++) {
-            dataStore[dataHash].attrs.push(attrs[i]);
-        }
+        history[dataHash] = true;
 
-        emit DataUpdate(data);
+        emit DataUpdate(groupID, dataID, ehrID, data);
     }
 }
