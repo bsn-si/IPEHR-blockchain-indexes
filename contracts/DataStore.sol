@@ -10,10 +10,6 @@ contract DataStore is ImmutableState, Restrictable {
 
     constructor(address _users) ImmutableState(address(uint160(0)), _users, address(uint160(0))) {}
 
-    struct DataSet  {
-        Attributes.Attribute[] attrs;
-    }
-
     mapping(bytes32 => bool) private history;
 
     event DataUpdate(bytes32 groupID, bytes32 dataID, bytes32 ehrID, bytes data);

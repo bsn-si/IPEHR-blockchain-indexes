@@ -43,11 +43,7 @@ async function main() {
   await ehrIndexer.deployed();
   console.log("EhrIndexer deployed to:", ehrIndexer.address);
 
-  const DataStore = await ethers.getContractFactory("DataStore", {
-      libraries: {
-        Attributes: Lib.address
-      }
-  });
+  const DataStore = await ethers.getContractFactory("DataStore");
   const dataStore = await DataStore.deploy(users.address);
   await dataStore.deployed();
   console.log("DataStore deployed to:", dataStore.address);

@@ -59,11 +59,7 @@ describe("DataStore contract", function () {
         const users = await Users.deploy(accessStore.address);
         await users.deployed();
 
-        const DataStore = await ethers.getContractFactory("DataStore", {
-            libraries: {
-                Attributes: lib.address,
-            },
-        });
+        const DataStore = await ethers.getContractFactory("DataStore");
         const dataStore = await DataStore.deploy(users.address);
         await dataStore.deployed();
 
@@ -89,14 +85,15 @@ describe("DataStore contract", function () {
 
     it("Should store data index update", async function () {
         const { users, dataStore, owner, pk } = await loadFixture(deployFixture);
-        const attrs = [
-            [8, ethers.utils.arrayify(0x010203)],       // attribute Content
-        ];
+		const groupID = "0xde1b5b5f7d2e0d0b9481e3fb25d9db0bf76606503411472a684ae43d52488d35"
+		const dataID  = "0x41183c352e2a4747d6f301689aee900a64a0b5ff5e2c472b16ebcef67d864d8b"
+		const ehrID   = "0xff4f429557f6c8c19d41c8155e4cdd25defaae609ae6d8fb16aaf87fedd5f58c"
+		const data    = "0x010203"
         const nonce = await dataStore.nonces(owner.address)
-        const payload = dataStore.interface.encodeFunctionData('dataUpdate', [attrs, owner.address, new Uint8Array(65)])
+        const payload = dataStore.interface.encodeFunctionData('dataUpdate', [groupID, dataID, ehrID, data, owner.address, new Uint8Array(65)])
         const signature = getSignedMessage(payload, pk, nonce)
 
-        const tx = await dataStore.dataUpdate(attrs, owner.address, signature)
+        const tx = await dataStore.dataUpdate(groupID, dataID, ehrID, data, owner.address, signature)
         const receipt = await tx.wait()
         const events = receipt.events;
 
