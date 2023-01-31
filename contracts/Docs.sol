@@ -158,11 +158,11 @@ abstract contract Docs is ImmutableState, Restrictable {
     }
 
     ///
-    function getDocByTime(bytes32 ehrID, DocType docType, uint32 timestamp)
-    public view returns (DocumentMeta memory)
+    function getDocByTime(bytes32 ehrID, IDocs.Type docType, uint32 timestamp)
+        public view returns (IDocs.DocumentMeta memory)
     {
         uint len = ehrDocs[ehrID][docType].length;
-        require(len == 0, "NFD");
+        require(len != 0, "NFD");
 
         for (uint i = len-1; i >= 0; --i) {
             if (ehrDocs[ehrID][docType][i].timestamp <= timestamp && ehrDocs[ehrID][docType][i].timestamp > 0) {
