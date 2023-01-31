@@ -241,7 +241,7 @@ abstract contract Docs is ImmutableState, Restrictable {
         signCheck(signer, signature);
 
         require(docType == IDocs.Type.Composition || docType == IDocs.Type.Directory, "WTP");
-        
+
         for (uint i = 0; i < ehrDocs[ehrId][docType].length; i++) {
             if (bytes32(Attributes.get(ehrDocs[ehrId][docType][i].attrs, Attributes.Code.DocBaseUIDHash)) == docBaseUIDHash && 
                 bytes32(ehrDocs[ehrId][docType][i].version) == version) 
