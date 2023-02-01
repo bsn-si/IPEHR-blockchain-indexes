@@ -83,7 +83,16 @@ abstract contract Docs is ImmutableState, Restrictable {
                 ehrDocs[ehrId][p.docType][i].isLast = false;
             }
         } else if (p.docType != IDocs.Type.Ehr && p.docType != IDocs.Type.EhrAccess && p.docType != IDocs.Type.EhrStatus) {
-            bytes32 docBaseUIDHash = bytes32(Attributes.get(p.attrs, Attributes.Code.DocBaseUIDHash));
+            bytes32 docBaseUIDHash;
+            
+            for (i = 0; i < p.attrs.length; i++) {
+                if (p.attrs[i].code == Attributes.Code.DocBaseUIDHash) {
+                    docBaseUIDHash = bytes32(p.attrs[i].value);
+                    break;
+                }
+            }
+            require(docBaseUIDHash != bytes32(0), "REQ2");
+
             for (i = 0; i < ehrDocs[ehrId][p.docType].length; i++) {
                 if (bytes32(Attributes.get(ehrDocs[ehrId][p.docType][i].attrs, Attributes.Code.DocBaseUIDHash)) == docBaseUIDHash) {
                     ehrDocs[ehrId][p.docType][i].isLast = false;
@@ -159,7 +168,7 @@ abstract contract Docs is ImmutableState, Restrictable {
 
     ///
     function getDocByTime(bytes32 ehrID, IDocs.Type docType, uint32 timestamp)
-        public view returns (IDocs.DocumentMeta memory)
+    public view returns (IDocs.DocumentMeta memory)
     {
         uint len = ehrDocs[ehrID][docType].length;
         require(len != 0, "NFD");
@@ -253,5 +262,5 @@ abstract contract Docs is ImmutableState, Restrictable {
         }
         revert("NFD");
     }
-
 }
+

@@ -27,7 +27,6 @@ contract DataStore is ImmutableState, Restrictable {
     {
         signCheck(signer, signature);
 
-        require(IUsers(users).getUser(signer).IDHash != bytes32(0), "NFD");
         require(data.length > 0, "LEN");
 
         bytes32 dataHash = keccak256(abi.encode(dataID, data));

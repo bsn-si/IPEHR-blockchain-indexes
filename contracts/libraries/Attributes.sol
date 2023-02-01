@@ -18,7 +18,8 @@ library Attributes {
         Timestamp,             // 12
         NameEncr,              // 13
         GroupDoctorsIDHash,    // 14
-        GroupAllDocsIDHash     // 15
+        GroupAllDocsIDHash,    // 15
+        DataIndexID            // 16
     }
 
     struct Attribute {
@@ -26,7 +27,7 @@ library Attributes {
         bytes value;
     }
 
-    function get(Attribute[] memory _p, Code a) 
+    function get(Attribute[] calldata _p, Code a) 
         public 
         pure 
         returns (bytes memory) 
