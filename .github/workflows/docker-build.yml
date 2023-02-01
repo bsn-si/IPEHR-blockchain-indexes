@@ -9,7 +9,6 @@ on:
       - main
       - develop
       - 'feature/**'
-      - '**'
   pull_request:
     types: [opened, reopened]
 
@@ -21,6 +20,10 @@ jobs:
   docker:
     name: docker-build
     runs-on: ubuntu-latest
+    permissions:
+      packages: write
+      contents: read
+
     steps:
       - name: Checkout
         uses: actions/checkout@v3
