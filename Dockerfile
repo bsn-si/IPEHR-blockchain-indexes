@@ -1,5 +1,14 @@
 FROM node:18-alpine3.16
 
+
+RUN apk update \
+    && apk add --virtual build-dependencies  \
+    build-base  \
+    gcc  \
+    wget \
+    git \
+    python3 
+
 WORKDIR /opt/node_app
 
 COPY package*.json ./
