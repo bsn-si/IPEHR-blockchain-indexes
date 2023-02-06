@@ -7,7 +7,8 @@ RUN apk update \
     gcc  \
     wget \
     git \
-    python3 
+    python3 \
+    curl
 
 WORKDIR /opt/node_app
 
