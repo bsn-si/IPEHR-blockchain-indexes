@@ -47,18 +47,17 @@ const config: HardhatUserConfig = {
     },
     goerli: {
       url: process.env.GOERLI_URL || "",
-      accounts:
-        process.env.PRIVATE_KEY !== undefined ? [process.env.PRIVATE_KEY] : [],
+      accounts: process.env.PRIVATE_KEY !== undefined ? [process.env.PRIVATE_KEY] : [],
     },
     Hyperspace: {
     	chainId: 3141,
         url: "https://api.hyperspace.node.glif.io/rpc/v1",
-        accounts: [process.env.PRIVATE_KEY],
+        accounts: process.env.PRIVATE_KEY !== undefined ? [process.env.PRIVATE_KEY] : [],
     },
     FilecoinMainnet: {
         chainId: 314,
         url: "https://api.node.glif.io",
-        accounts: [process.env.PRIVATE_KEY],
+        accounts: process.env.PRIVATE_KEY !== undefined ? [process.env.PRIVATE_KEY] : [],
     },
   },
   gasReporter: {
