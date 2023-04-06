@@ -7,6 +7,8 @@ import "@typechain/hardhat";
 import "hardhat-gas-reporter";
 import "solidity-coverage";
 import "hardhat-contract-sizer";
+import "./tasks";
+import "hardhat-deploy";
 
 dotenv.config();
 
@@ -33,6 +35,7 @@ const config: HardhatUserConfig = {
       },
     },
   },
+  defaultNetwork: "hardhat",
   networks: {
     hardhat: {
       //allowUnlimitedContractSize: true,
@@ -44,15 +47,18 @@ const config: HardhatUserConfig = {
     },
     goerli: {
       url: process.env.GOERLI_URL || "",
-      accounts:
-        process.env.PRIVATE_KEY !== undefined ? [process.env.PRIVATE_KEY] : [],
+      accounts: process.env.PRIVATE_KEY !== undefined ? [process.env.PRIVATE_KEY] : [],
     },
-    wallaby: {
-	  allowUnlimitedContractSize: true,
-	  url: "https://wallaby.node.glif.io/rpc/v0",
-      accounts:
-        process.env.PRIVATE_KEY !== undefined ? [process.env.PRIVATE_KEY] : [],
-    }
+    Hyperspace: {
+    	chainId: 3141,
+        url: "https://api.hyperspace.node.glif.io/rpc/v1",
+        accounts: process.env.PRIVATE_KEY !== undefined ? [process.env.PRIVATE_KEY] : [],
+    },
+    FilecoinMainnet: {
+        chainId: 314,
+        url: "https://api.node.glif.io",
+        accounts: process.env.PRIVATE_KEY !== undefined ? [process.env.PRIVATE_KEY] : [],
+    },
   },
   gasReporter: {
     enabled: process.env.REPORT_GAS !== undefined,
