@@ -35,7 +35,7 @@ const config: HardhatUserConfig = {
       },
     },
   },
-  defaultNetwork: "Hyperspace",
+  defaultNetwork: "hardhat",
   networks: {
     hardhat: {
       //allowUnlimitedContractSize: true,
