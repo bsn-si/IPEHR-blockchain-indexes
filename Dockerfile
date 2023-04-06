@@ -1,4 +1,4 @@
-FROM node:19-alpine3.16
+FROM node:18-alpine3.16
 
 
 RUN apk update \
@@ -13,6 +13,7 @@ RUN apk update \
 WORKDIR /opt/node_app
 
 COPY package*.json ./
+RUN npm install -g npm@9.6.4
 RUN npm install --save-dev && npm cache clean --force
 
 ENV PATH /opt/node_app/node_modules/.bin:$PATH
