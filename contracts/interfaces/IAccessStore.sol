@@ -4,6 +4,7 @@ pragma solidity ^0.8.17;
 interface IAccessStore {
     enum AccessLevel { NoAccess, Owner, Admin, Read }
     enum AccessKind { Doc, DocGroup, UserGroup }
+    enum AccessAction { NoAction, Update, Insert }
     
     struct Access {
         bytes32      idHash;

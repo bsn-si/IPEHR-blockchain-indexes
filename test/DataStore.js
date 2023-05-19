@@ -34,9 +34,7 @@ const getSignedMessage = async (payload, pk, nonce) => {
     ret.s = sig.signature.slice(32, 64)
     ret.v = sig.recid + 27
 
-    const signature = "0x" + toHexString(ret.r) + toHexString(ret.s) + toHexString([ret.v])
-
-    return signature
+    return "0x" + toHexString(ret.r) + toHexString(ret.s) + toHexString([ret.v])
 };
 
 describe("DataStore contract", function () {

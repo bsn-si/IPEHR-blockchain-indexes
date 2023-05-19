@@ -39,7 +39,7 @@ const config: HardhatUserConfig = {
   networks: {
     hardhat: {
       //allowUnlimitedContractSize: true,
-      loggingEnabled: true,
+      //loggingEnabled: true,
       mining: {
         auto: true,
         interval: 0

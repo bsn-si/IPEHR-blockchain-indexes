@@ -3,6 +3,7 @@ pragma solidity ^0.8.17;
 
 import "./interfaces/IUsers.sol";
 import "./Docs.sol";
+import "hardhat/console.sol";
 
 abstract contract DocGroups is Docs {
     struct DocumentGroup {
@@ -16,10 +17,11 @@ abstract contract DocGroups is Docs {
 
     struct DocGroupCreateParams {
         bytes32     groupIDHash;       
-        //bytes       userIDEncr;      // user id   encrypted with group key
         Attributes.Attribute[] attrs;
-            // group id  encrypted with user pub key
-            // group key encrypted with user pub key
+            // Expected attributes:
+            // group id   encrypted with group key
+            // group key  encrypted with group key
+            // group name encrypted with group key
         
         address     signer;
         bytes       signature;
@@ -30,24 +32,13 @@ abstract contract DocGroups is Docs {
     {
         signCheck(p.signer, p.signature);
 
+        require(p.attrs.length >= 3, "REQ");
+
         // Checking the duplicate        
         require(Attributes.get(docGroups[p.groupIDHash].attrs, Attributes.Code.NameEncr).length == 0, "AEX");
 
         bytes32 ownerIDHash = IUsers(users).getUser(p.signer).IDHash;
         require(ownerIDHash != bytes32(0), "NFD");
-
-        // Set owner access
-        //IAccessStore(accessStore).setAccess(
-        //    accessID, 
-        //   IAccessStore.Access({
-        //        idHash: keccak256(abi.encode(ownerIDHash)),
-        //        idEncr: p.userIdEncr,
-        //        keyEncr: Attributes.get(p.attrs, Attributes.Code.KeyEncr),
-        //        level: IAccessStore.AccessLevel.Owner
-        //    }
-        //));
-
-        require(p.attrs.length > 0, "REQ");
 
         for (uint i; i < p.attrs.length; i++) {
             docGroups[p.groupIDHash].attrs.push(p.attrs[i]);
