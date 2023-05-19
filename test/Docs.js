@@ -463,5 +463,89 @@ describe("Docs contract", function () {
         assert.equal(doc.status, 1); // 1 = status deleted
     })
 
+    it("Creating EHR document group", async function () {
+        const { docs, users, owner, pk } = await loadFixture(deployFixture);
 
+        // Patient's registration
+        const userID = "patient";
+        const userIDHash = ethers.utils.keccak256(ethers.utils.toUtf8Bytes(userID + systemID))
+        await userRegister(rolePatient, userID, systemID, patientAddress, users, owner, pk);
+
+        // Document group creating
+        const groupID = "groupTest";
+        const groupIDHash = ethers.utils.keccak256(ethers.utils.toUtf8Bytes(groupID + systemID))
+
+        const params = {
+            groupIDHash: groupIDHash,
+            attrs: [
+                [2, new Uint8Array([1, 1, 1])],   // Attribute ID encrypted
+                [3, new Uint8Array([2, 2, 2])],   // Attribute Key encrypted
+                [13, new Uint8Array([3, 3, 3])]   // Attribute Name encrypted
+            ],
+            signer: patientAddress,
+            signature: new Uint8Array(65)
+        };
+
+        const nonce = await users.nonces(patientAddress);
+        const payload = docs.interface.encodeFunctionData('docGroupCreate', [params]);
+        params.signature = getSignedMessage(payload, patientPrivateKey, nonce);
+
+        await docs.docGroupCreate(params);
+
+        // Document group getting attributes
+        const groupAttrs = await docs.docGroupGetAttrs(groupIDHash);
+        assert.equal(groupAttrs.length, 3);
+        assert.equal(groupAttrs[2].code, 13);
+        assert.equal(groupAttrs[2].value, ethers.utils.hexlify([3, 3, 3]));
+    })
+
+    it("Adding a EHR document to the group", async function () {
+        const { docs, users, owner, pk } = await loadFixture(deployFixture);
+
+        // Patient's registration
+        const userID = "patient";
+        const userIDHash = ethers.utils.keccak256(ethers.utils.toUtf8Bytes(userID + systemID))
+        await userRegister(rolePatient, userID, systemID, patientAddress, users, owner, pk);
+
+        // Document group creating
+        const groupID = "groupTest";
+        const groupIDHash = ethers.utils.keccak256(ethers.utils.toUtf8Bytes(groupID + systemID));
+
+        const params = {
+            groupIDHash: groupIDHash,
+            attrs: [
+                [2, new Uint8Array([1, 1, 1])],   // Attribute ID encrypted
+                [3, new Uint8Array([2, 2, 2])],   // Attribute Key encrypted
+                [13, new Uint8Array([3, 3, 3])]   // Attribute Name encrypted
+            ],
+            signer: patientAddress,
+            signature: new Uint8Array(65)
+        };
+
+        var nonce = await docs.nonces(patientAddress);
+        var payload = docs.interface.encodeFunctionData('docGroupCreate', [params]);
+        params.signature = getSignedMessage(payload, patientPrivateKey, nonce);
+
+        await docs.docGroupCreate(params);
+
+        // Adding a document to the group
+        const docCIDHash = ethers.utils.keccak256(ethers.utils.toUtf8Bytes("docCIDTest"));
+        const docCIDEncr = new Uint8Array([1, 2, 3]);
+        const addDocParams = [
+            groupIDHash,
+            docCIDHash,
+            docCIDEncr,
+            patientAddress
+        ];
+
+        nonce = await docs.nonces(patientAddress);
+        payload = docs.interface.encodeFunctionData('docGroupAddDoc', [...addDocParams, new Uint8Array(65)]);
+        const signature = getSignedMessage(payload, patientPrivateKey, nonce);
+
+        await docs.docGroupAddDoc(...addDocParams, signature);
+
+        const docsCIDs = await docs.docGroupGetDocs(groupIDHash);
+        assert.equal(docsCIDs.length, 1);
+        assert.equal(docsCIDs[0], ethers.utils.hexlify(docCIDEncr));
+    })
 })

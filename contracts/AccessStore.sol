@@ -11,13 +11,11 @@ contract AccessStore is IAccessStore {
     mapping(bytes32 => Access[]) accessStore;
 
     ///
-    function getAccess(bytes32 accessID) external view returns(Access[] memory) {
-        return accessStore[accessID];
-    }
-
-    ///
-    // Returns 1 on update or 2 on insert
-    function setAccess(bytes32 accessID, Access memory o) external returns(uint8)
+    function setAccess(
+        bytes32 accessID,
+        Access memory o
+    ) 
+        external returns(uint8)
     {
         for(uint i; i < accessStore[accessID].length; i++) {
             if (accessStore[accessID][i].idHash == o.idHash) {
@@ -30,6 +28,11 @@ contract AccessStore is IAccessStore {
 
         accessStore[accessID].push(o);
         return 2;
+    }
+
+    ///
+    function getAccess(bytes32 accessID) external view returns(Access[] memory) {
+        return accessStore[accessID];
     }
 
     ///
@@ -55,12 +58,10 @@ contract AccessStore is IAccessStore {
         }
 
         // Checking groups
-        accessID = keccak256(abi.encode(userID, AccessKind.UserGroup));
-        for (uint i = 0; i < accessStore[accessID].length; i++) {
-            for (uint j = 0; j < accessStore[accessID].length; j++) {
-                if (accessStore[accessID][j].idHash == idHash) {
-                    return accessStore[accessID][j];
-                }
+        bytes32 accessIDGroup = keccak256(abi.encode(userID, AccessKind.UserGroup));
+        for (uint i = 0; i < accessStore[accessIDGroup].length; i++) {
+            if (accessStore[accessIDGroup][i].idHash == idHash) {
+                return accessStore[accessIDGroup][i];
             }
         }
 
