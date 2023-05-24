@@ -87,16 +87,6 @@ contract Users is IUsers, ImmutableState, Restrictable, Multicall {
     for (uint i; i < attrs.length; i++) {
       userGroups[groupIdHash].attrs.push(attrs[i]);
     }
-
-    // Adding a groupID to a user's group list
-    /*
-    IAccessStore(accessStore).setAccess(keccak256(abi.encode(usersStore[signer].IDHash, IAccessStore.AccessKind.UserGroup)), IAccessStore.Access({
-      idHash: groupIdHash,
-      idEncr: Attributes.get(attrs, Attributes.Code.IDEncr),
-      keyEncr: Attributes.get(attrs, Attributes.Code.KeyEncr),
-      level: IAccessStore.AccessLevel.Owner
-    }));
-    */
   }
 
   ///
@@ -121,19 +111,6 @@ contract Users is IUsers, ImmutableState, Restrictable, Multicall {
       userIDHash: p.userIDHash,
       userIDEncr: p.userIDEncr
     }));
-
-    // Adding the group's secret key
-    /*
-    IAccessStore(accessStore).setAccess(
-      keccak256(abi.encode(p.userIDHash, IAccessStore.AccessKind.UserGroup)), 
-      IAccessStore.Access({
-        idHash: p.groupIDHash,
-        idEncr: signerAccess.idEncr,
-        keyEncr: p.keyEncr,
-        level: p.level
-      })
-    );
-    */
   }
 
   ///
@@ -158,15 +135,6 @@ contract Users is IUsers, ImmutableState, Restrictable, Multicall {
           userGroups[groupIDHash].members.pop();
       }
     }
-
-    // Removing a group's access key
-    /*
-    uint8 result = IAccessStore(accessStore).setAccess(
-      keccak256(abi.encode(userIDHash, IAccessStore.AccessKind.UserGroup)), 
-      IAccessStore.Access(groupIDHash, new bytes(0), new bytes(0), IAccessStore.AccessLevel.NoAccess)
-    );
-    require(result == 1, "NFD");
-    */
   }
 
   function userGroupGetByID(bytes32 groupIdHash) external view returns(UserGroup memory) {

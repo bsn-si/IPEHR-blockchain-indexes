@@ -43,18 +43,6 @@ abstract contract DocGroups is Docs {
         for (uint i; i < p.attrs.length; i++) {
             docGroups[p.groupIDHash].attrs.push(p.attrs[i]);
         }
-
-        /*
-        IAccessStore(accessStore).setAccess(
-            keccak256((abi.encode(ownerIDHash, IAccessStore.AccessKind.DocGroup))), 
-            IAccessStore.Access({
-                idHash: p.groupIDHash,
-                idEncr: Attributes.get(p.attrs, Attributes.Code.IDEncr),
-                keyEncr: Attributes.get(p.attrs, Attributes.Code.KeyEncr),
-                level: IAccessStore.AccessLevel.Owner
-            })
-        );
-        */
     }
 
     function docGroupAddDoc(

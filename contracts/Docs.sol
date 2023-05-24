@@ -119,18 +119,6 @@ abstract contract Docs is ImmutableState, Restrictable {
         }
 
         if (p.docType == IDocs.Type.Query) return;
-
-        /*
-        IAccessStore(accessStore).setAccess(
-            keccak256(abi.encode(userIDHash, IAccessStore.AccessKind.Doc)),
-            IAccessStore.Access({
-                idHash: IDHash,
-                idEncr: Attributes.get(p.attrs, Attributes.Code.IDEncr),
-                keyEncr: Attributes.get(p.attrs, Attributes.Code.KeyEncr),
-                level: IAccessStore.AccessLevel.Admin
-            }
-        ));
-        */
     }
 
     ///
@@ -202,43 +190,6 @@ abstract contract Docs is ImmutableState, Restrictable {
 
         revert("NFD2");
     }
-
-    ///
-    /*
-    function setDocAccess(
-        bytes32         CIDHash,
-        IAccessStore.Access calldata access,
-        address         userAddr,
-        address         signer,
-        bytes calldata  signature
-    )
-        external
-    {
-        signCheck(signer, signature);
-
-        bytes32 userIDHash = IUsers(users).getUser(userAddr).IDHash;
-        require(userIDHash != bytes32(0), "NFD1");
-
-        bytes32 signerIDHash = IUsers(users).getUser(signer).IDHash;
-        require(signerIDHash != bytes32(0), "NFD2");
-
-        // Checking access rights
-        {
-            // Signer should be Owner or Admin of doc
-            IAccessStore.AccessLevel signerLevel = IAccessStore(accessStore).userAccess(signerIDHash, IAccessStore.AccessKind.Doc, CIDHash).level;
-            require(signerLevel == IAccessStore.AccessLevel.Owner || signerLevel == IAccessStore.AccessLevel.Admin, "DNY1");
-            require(IAccessStore(accessStore).userAccess(userIDHash, IAccessStore.AccessKind.Doc, CIDHash).level != IAccessStore.AccessLevel.Owner, "DNY2");
-        }
-
-        // Request validation
-        if (access.level == IAccessStore.AccessLevel.NoAccess) {
-            require(access.keyEncr.length == 0 && access.idEncr.length == 0, "E01");
-        }
-
-        // Set access
-        IAccessStore(accessStore).setAccess(keccak256(abi.encode(userIDHash, IAccessStore.AccessKind.Doc)), access);
-    }
-    */
 
     ///
     function deleteDoc(
