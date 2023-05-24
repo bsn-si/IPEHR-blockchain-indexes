@@ -50,9 +50,9 @@ describe("DataStore contract", function () {
         await lib.deployed();
 
         const Users = await ethers.getContractFactory("Users", {
-            libraries: {
-                Attributes: lib.address,
-            },
+            //libraries: {
+            //    Attributes: lib.address,
+            //},
         });
         const users = await Users.deploy(accessStore.address);
         await users.deployed();

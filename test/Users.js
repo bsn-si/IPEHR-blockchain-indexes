@@ -45,8 +45,9 @@ describe("Users contract", function () {
     const patientSigner = new ethers.Wallet(patientPrivateKey);
     const doctorAddress = "0x98d477eee45f34054db8a1a5313d9f2781a44b6f";
     const doctorPrivateKey = "0x90319f2d647dc5b5e4aa23fbfcc92f693255024b7c47e90b37b002273f426ece";
-    const rolePatient = 0;
-    const roleDoctor = 1;
+    const Role = { Patient: 0, Doctor: 1 };
+    const AccessKind = { Doc: [...new Uint8Array(31), 1], DocGroup: [...new Uint8Array(31), 2], UserGroup: [...new Uint8Array(31), 3] };
+    const AccessLevel = { Owner: [...new Uint8Array(31), 1], Admin: [...new Uint8Array(31), 2], Read: [...new Uint8Array(31), 3] };
 
     async function deployFixture() {
         const [owner, addr1, addr2] = await ethers.getSigners();
@@ -60,9 +61,9 @@ describe("Users contract", function () {
         await lib.deployed();
 
         const Users = await ethers.getContractFactory("Users", {
-            libraries: {
-                Attributes: lib.address,
-            },
+            //libraries: {
+            //    Attributes: lib.address,
+            //},
         });
         const users = await Users.deploy(accessStore.address);
         await users.deployed();
@@ -70,7 +71,7 @@ describe("Users contract", function () {
         const wallet = new ethers.Wallet(ownerPrivateKey);
         const pk = wallet.privateKey;
 
-        return { users, owner, pk };
+        return { users, accessStore, owner, pk };
     }
 
     async function userRegister(role, userID, systemID, userAddress, usersContract, contractOwner, ownerPrivateKey) {
@@ -93,48 +94,48 @@ describe("Users contract", function () {
     }
 
     it("Patient registration", async function () {
-        const { users, owner, pk } = await loadFixture(deployFixture);
+        const { users, accessStore, owner, pk } = await loadFixture(deployFixture);
 
         const userID = "patient";
         const userIDHash = ethers.utils.keccak256(ethers.utils.toUtf8Bytes(userID + systemID))
 
-        await userRegister(roleDoctor, userID, systemID, patientAddress, users, owner, pk);
+        await userRegister(Role.Doctor, userID, systemID, patientAddress, users, owner, pk);
 
         const user = await users.getUser(patientAddress);
         assert.equal(user.IDHash, userIDHash);
     })
 
     it("Doctor registration", async function () {
-        const { users, owner, pk } = await loadFixture(deployFixture);
+        const { users, accessStore, owner, pk } = await loadFixture(deployFixture);
 
         const userID = "doctor";
         const userIDHash = ethers.utils.keccak256(ethers.utils.toUtf8Bytes(userID + systemID))
 
-        await userRegister(roleDoctor, userID, systemID, doctorAddress, users, owner, pk);
+        await userRegister(Role.Doctor, userID, systemID, doctorAddress, users, owner, pk);
 
         const user = await users.getUser(doctorAddress);
         assert.equal(user.IDHash, userIDHash);
     })
 
     it("Getting doctor by code", async function () {
-        const { users, owner, pk } = await loadFixture(deployFixture);
+        const { users, owner, accessStore, pk } = await loadFixture(deployFixture);
 
         const userID = "doctor";
         const userIDHash = ethers.utils.keccak256(ethers.utils.toUtf8Bytes(userID + systemID))
         const view = new DataView(ethers.utils.arrayify(userIDHash).buffer.slice(0, 8), 0);
         const doctorCode = view.getBigUint64(0) % 99999999n;
 
-        await userRegister(roleDoctor, userID, systemID, doctorAddress, users, owner, pk);
+        await userRegister(Role.Doctor, userID, systemID, doctorAddress, users, owner, pk);
 
         const user = await users.getUserByCode(doctorCode);
         assert.equal(user.IDHash, userIDHash);
     })
 
     it("Creating a user group", async function () {
-        const { users, owner, pk } = await loadFixture(deployFixture);
+        const { users, owner, accessStore, pk } = await loadFixture(deployFixture);
 
         const userID = "patient";
-        await userRegister(roleDoctor, userID, systemID, patientAddress, users, owner, pk);
+        await userRegister(Role.Doctor, userID, systemID, patientAddress, users, owner, pk);
 
         const groupID = "groupTest";
         const groupIDHash = ethers.utils.keccak256(ethers.utils.toUtf8Bytes(groupID + systemID))
@@ -158,11 +159,12 @@ describe("Users contract", function () {
     })
 
     it("Adding a user to the group", async function () {
-        const { users, owner, pk } = await loadFixture(deployFixture);
+        const { users, owner, accessStore, pk } = await loadFixture(deployFixture);
 
         // Patient's registration
-        const userID = "patient";
-        await userRegister(rolePatient, userID, systemID, patientAddress, users, owner, pk);
+        const patientID = "patient";
+        const patientIDHash = ethers.utils.keccak256(ethers.utils.toUtf8Bytes(patientID + systemID))
+        await userRegister(Role.Patient, patientID, systemID, patientAddress, users, owner, pk);
 
         // Group registration
         const groupID = "groupTest";
@@ -181,16 +183,36 @@ describe("Users contract", function () {
         var signature = getSignedMessage(payload, patientPrivateKey, nonce);
         await users.userGroupCreate(...params, signature);
 
+        // Granting access to group to the patient
+        const patientAccessID = ethers.utils.keccak256([...ethers.utils.arrayify(patientIDHash), ...AccessKind.UserGroup]);
+        const setAccessParams = [
+            patientAccessID,
+            {
+                kind: AccessKind.UserGroup,
+                idHash: groupIDHash,
+                idEncr: new Uint8Array(32),
+                keyEncr: new Uint8Array(32),
+                level: AccessLevel.Owner
+            },
+            patientAddress
+        ];
+
+        nonce = await accessStore.nonces(patientAddress);
+        payload = accessStore.interface.encodeFunctionData('setAccess', [...setAccessParams, new Uint8Array(65)]);
+        var signature = getSignedMessage(payload, patientPrivateKey, nonce);
+        
+        await accessStore.setAccess(...setAccessParams, signature);
+
         // Doctor's registration
         const userIDHash = ethers.utils.keccak256(ethers.utils.toUtf8Bytes("doctor" + systemID))
-        await userRegister(roleDoctor, "doctor", systemID, doctorAddress, users, owner, pk);
+        await userRegister(Role.Doctor, "doctor", systemID, doctorAddress, users, owner, pk);
 
         // Adding the doctor to the group
         const userIDEncr = new Uint8Array([255, 255, 255]); // For the example, it doesn't matter here.
         const groupAddParams = {
             groupIDHash: ethers.utils.arrayify(groupIDHash),
             userIDHash: ethers.utils.arrayify(userIDHash),
-            level: 3, // read
+            level: AccessLevel.Read,
             userIDEncr: userIDEncr,
             keyEncr: new Uint8Array([255, 255, 255]),
             signer: patientAddress,
@@ -210,11 +232,12 @@ describe("Users contract", function () {
     })
 
     it("Removing a user from a group", async function () {
-        const { users, owner, pk } = await loadFixture(deployFixture);
+        const { users, owner, accessStore, pk } = await loadFixture(deployFixture);
 
         // Patient's registration
-        const userID = "patient";
-        await userRegister(rolePatient, userID, systemID, patientAddress, users, owner, pk);
+        const patientID = "patient";
+        const patientIDHash = ethers.utils.keccak256(ethers.utils.toUtf8Bytes(patientID + systemID))
+        await userRegister(Role.Patient, patientID, systemID, patientAddress, users, owner, pk);
 
         // Group registration
         const groupID = "groupTest";
@@ -233,16 +256,36 @@ describe("Users contract", function () {
         var signature = getSignedMessage(payload, patientPrivateKey, nonce);
         await users.userGroupCreate(...params, signature);
 
+        // Granting access to group to the patient
+        const patientAccessID = ethers.utils.keccak256([...ethers.utils.arrayify(patientIDHash), ...AccessKind.UserGroup]);
+        const setAccessParams = [
+            patientAccessID,
+            {
+                kind: AccessKind.UserGroup,
+                idHash: groupIDHash,
+                idEncr: new Uint8Array(32),
+                keyEncr: new Uint8Array(32),
+                level: AccessLevel.Owner
+            },
+            patientAddress
+        ];
+
+        nonce = await accessStore.nonces(patientAddress);
+        payload = accessStore.interface.encodeFunctionData('setAccess', [...setAccessParams, new Uint8Array(65)]);
+        var signature = getSignedMessage(payload, patientPrivateKey, nonce);
+        
+        await accessStore.setAccess(...setAccessParams, signature);
+
         // Doctor's registration
         const userIDHash = ethers.utils.keccak256(ethers.utils.toUtf8Bytes("doctor" + systemID))
-        await userRegister(roleDoctor, "doctor", systemID, doctorAddress, users, owner, pk);
+        await userRegister(Role.Doctor, "doctor", systemID, doctorAddress, users, owner, pk);
 
         // Adding the doctor to the group
         const userIDEncr = new Uint8Array([255, 255, 255]); // For the example, it doesn't matter here.
         const groupAddUserParams = {
             groupIDHash: ethers.utils.arrayify(groupIDHash),
             userIDHash: ethers.utils.arrayify(userIDHash),
-            level: 3, // read
+            level: AccessLevel.Read,
             userIDEncr: userIDEncr,
             keyEncr: new Uint8Array([255, 255, 255]),
             signer: patientAddress,
@@ -275,11 +318,12 @@ describe("Users contract", function () {
     })
 
     it("Removing a user from a group with no access rights", async function () {
-        const { users, owner, pk } = await loadFixture(deployFixture);
+        const { users, owner, accessStore, pk } = await loadFixture(deployFixture);
 
         // Patient's registration
-        const userID = "patient";
-        await userRegister(rolePatient, userID, systemID, patientAddress, users, owner, pk);
+        const patientID = "patient";
+        const patientIDHash = ethers.utils.keccak256(ethers.utils.toUtf8Bytes(patientID + systemID))
+        await userRegister(Role.Patient, patientID, systemID, patientAddress, users, owner, pk);
 
         // Group registration
         const groupID = "groupTest";
@@ -298,9 +342,29 @@ describe("Users contract", function () {
         var signature = getSignedMessage(payload, patientPrivateKey, nonce);
         await users.userGroupCreate(...params, signature);
 
+        // Granting access to group to the patient
+        const patientAccessID = ethers.utils.keccak256([...ethers.utils.arrayify(patientIDHash), ...AccessKind.UserGroup]);
+        const setAccessParams = [
+            patientAccessID,
+            {
+                kind: AccessKind.UserGroup,
+                idHash: groupIDHash,
+                idEncr: new Uint8Array(32),
+                keyEncr: new Uint8Array(32),
+                level: AccessLevel.Owner
+            },
+            patientAddress
+        ];
+
+        nonce = await accessStore.nonces(patientAddress);
+        payload = accessStore.interface.encodeFunctionData('setAccess', [...setAccessParams, new Uint8Array(65)]);
+        var signature = getSignedMessage(payload, patientPrivateKey, nonce);
+        
+        await accessStore.setAccess(...setAccessParams, signature);
+
         // Doctor's registration
         const userIDHash = ethers.utils.keccak256(ethers.utils.toUtf8Bytes("doctor" + systemID))
-        await userRegister(roleDoctor, "doctor", systemID, doctorAddress, users, owner, pk);
+        await userRegister(Role.Doctor, "doctor", systemID, doctorAddress, users, owner, pk);
 
         // Adding the doctor to the group
         const userIDEncr = new Uint8Array([255, 255, 255]); // For the example, it doesn't matter here.

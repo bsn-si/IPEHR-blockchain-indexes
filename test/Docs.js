@@ -5,10 +5,6 @@ const { expect } = require("chai");
 const { v4: uuidv4, parse: uuidParse } = require('uuid');
 const crypto = require('crypto');
 
-const methodHashTypes = {
-    dataUpdate: ["string","tuple(uint8, bytes)[]","address","bytes"],
-};
-
 const ownerPrivateKey = "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80";
 
 function toHexString(byteArray) {
@@ -47,8 +43,9 @@ describe("Docs contract", function () {
     const patientSigner = new ethers.Wallet(patientPrivateKey);
     const doctorAddress = "0x98d477eee45f34054db8a1a5313d9f2781a44b6f";
     const doctorPrivateKey = "0x90319f2d647dc5b5e4aa23fbfcc92f693255024b7c47e90b37b002273f426ece";
-    const rolePatient = 0;
-    const roleDoctor = 1;
+    const Role = { Patient: 0, Doctor: 1 };
+    const AccessKind = { Doc: [...new Uint8Array(31), 1], DocGroup: [...new Uint8Array(31), 2], UserGroup: [...new Uint8Array(31), 3] };
+    const AccessLevel = { Owner: [...new Uint8Array(31), 1], Admin: [...new Uint8Array(31), 2], Read: [...new Uint8Array(31), 3] };
 
     async function deployFixture() {
         const [owner, addr1, addr2] = await ethers.getSigners();
@@ -62,9 +59,9 @@ describe("Docs contract", function () {
         await lib.deployed();
 
         const Users = await ethers.getContractFactory("Users", {
-            libraries: {
-                Attributes: lib.address,
-            },
+            //libraries: {
+            //    Attributes: lib.address,
+            //},
         });
         const users = await Users.deploy(accessStore.address);
         await users.deployed();
@@ -80,7 +77,7 @@ describe("Docs contract", function () {
         const wallet = new ethers.Wallet(ownerPrivateKey);
         const pk = wallet.privateKey;
 
-        return { docs, users, owner, pk };
+        return { docs, users, accessStore, owner, pk };
     }
 
     async function userRegister(role, userID, systemID, userAddress, usersContract, contractOwner, ownerPrivateKey) {
@@ -116,7 +113,7 @@ describe("Docs contract", function () {
     }
 
     it("Setting EHR_ID for user", async function () {
-        const { docs, users, owner, pk } = await loadFixture(deployFixture);
+        const { docs, users, accessStore, owner, pk } = await loadFixture(deployFixture);
 
         const ehrID = [...uuidParse("3efe3319-e0f7-4b96-bb5d-f9998398abf2"), ...new Uint8Array(16)]
         const userID = "patient";
@@ -129,7 +126,7 @@ describe("Docs contract", function () {
     })
 
     it("Setting EHR_SUBJECT for user", async function () {
-        const { docs, owner, pk } = await loadFixture(deployFixture);
+        const { docs, users, accessStore, owner, pk } = await loadFixture(deployFixture);
 
         const ehrID = [...uuidParse("3efe3319-e0f7-4b96-bb5d-f9998398abf2"), ...new Uint8Array(16)]
         const ehrSubjectKey = [...uuidParse("634f3989-d9af-4053-ad54-c33745500074"), ...new Uint8Array(16)]
@@ -150,12 +147,12 @@ describe("Docs contract", function () {
     })
 
     it("Adding EHR document", async function () {
-        const { docs, users, owner, pk } = await loadFixture(deployFixture);
+        const { docs, users, accessStore, owner, pk } = await loadFixture(deployFixture);
 
         // Patient's registration
         const userID = "patient";
         const userIDHash = ethers.utils.keccak256(ethers.utils.toUtf8Bytes(userID + systemID))
-        await userRegister(rolePatient, userID, systemID, patientAddress, users, owner, pk);
+        await userRegister(Role.Patient, userID, systemID, patientAddress, users, owner, pk);
 
         const ehrID = [...uuidParse("3efe3319-e0f7-4b96-bb5d-f9998398abf2"), ...new Uint8Array(16)]
         await ehrRegister(docs, ehrID, userIDHash, owner.address, pk);
@@ -178,11 +175,11 @@ describe("Docs contract", function () {
     })
 
     it("Getting EHR documents by type", async function () {
-        const { docs, users, owner, pk } = await loadFixture(deployFixture);
+        const { docs, users, accessStore, owner, pk } = await loadFixture(deployFixture);
 
         const userID = "patient";
         const userIDHash = ethers.utils.keccak256(ethers.utils.toUtf8Bytes(userID + systemID))
-        await userRegister(rolePatient, userID, systemID, patientAddress, users, owner, pk);
+        await userRegister(Role.Patient, userID, systemID, patientAddress, users, owner, pk);
 
         const ehrID = [...uuidParse("3efe3319-e0f7-4b96-bb5d-f9998398abf2"), ...new Uint8Array(16)]
         await ehrRegister(docs, ehrID, userIDHash, owner.address, pk);
@@ -210,11 +207,11 @@ describe("Docs contract", function () {
     })
 
     it("Getting last EHR document by type", async function () {
-        const { docs, users, owner, pk } = await loadFixture(deployFixture);
+        const { docs, users, accessStore, owner, pk } = await loadFixture(deployFixture);
 
         const userID = "patient";
         const userIDHash = ethers.utils.keccak256(ethers.utils.toUtf8Bytes(userID + systemID))
-        await userRegister(rolePatient, userID, systemID, patientAddress, users, owner, pk);
+        await userRegister(Role.Patient, userID, systemID, patientAddress, users, owner, pk);
 
         const ehrID = [...uuidParse("3efe3319-e0f7-4b96-bb5d-f9998398abf2"), ...new Uint8Array(16)]
         await ehrRegister(docs, ehrID, userIDHash, owner.address, pk);
@@ -260,11 +257,11 @@ describe("Docs contract", function () {
     })
 
     it("Getting EHR document by version", async function () {
-        const { docs, users, owner, pk } = await loadFixture(deployFixture);
+        const { docs, users, accessStore, owner, pk } = await loadFixture(deployFixture);
 
         const userID = "patient";
         const userIDHash = ethers.utils.keccak256(ethers.utils.toUtf8Bytes(userID + systemID))
-        await userRegister(rolePatient, userID, systemID, patientAddress, users, owner, pk);
+        await userRegister(Role.Patient, userID, systemID, patientAddress, users, owner, pk);
 
         const ehrID = [...uuidParse("3efe3319-e0f7-4b96-bb5d-f9998398abf2"), ...new Uint8Array(16)]
         await ehrRegister(docs, ehrID, userIDHash, owner.address, pk);
@@ -298,16 +295,16 @@ describe("Docs contract", function () {
     })
 
     it("Getting EHR document by time", async function () {
-        const { docs, owner, pk } = await loadFixture(deployFixture);
+        const { docs, users, access, owner, pk } = await loadFixture(deployFixture);
 
     })
 
     it("Getting last EHR document by baseID", async function () {
-        const { docs, users, owner, pk } = await loadFixture(deployFixture);
+        const { docs, users, accessStore, owner, pk } = await loadFixture(deployFixture);
 
         const userID = "patient";
         const userIDHash = ethers.utils.keccak256(ethers.utils.toUtf8Bytes(userID + systemID))
-        await userRegister(rolePatient, userID, systemID, patientAddress, users, owner, pk);
+        await userRegister(Role.Patient, userID, systemID, patientAddress, users, owner, pk);
 
         const ehrID = [...uuidParse("3efe3319-e0f7-4b96-bb5d-f9998398abf2"), ...new Uint8Array(16)]
         await ehrRegister(docs, ehrID, userIDHash, owner.address, pk);
@@ -360,16 +357,17 @@ describe("Docs contract", function () {
     })
 
     it("Setting EHR document access", async function () {
-        const { docs, users, owner, pk } = await loadFixture(deployFixture);
+        const { docs, users, accessStore, owner, pk } = await loadFixture(deployFixture);
 
         // Patient's registration
         const patientID = "patient";
         const patientIDHash = ethers.utils.keccak256(ethers.utils.toUtf8Bytes(patientID + systemID))
-        await userRegister(rolePatient, patientID, systemID, patientAddress, users, owner, pk);
+        await userRegister(Role.Patient, patientID, systemID, patientAddress, users, owner, pk);
 
         // Doctor's registration
         const doctorID = "doctor"
-        await userRegister(roleDoctor, doctorID, systemID, doctorAddress, users, owner, pk);
+        const doctorIDHash = ethers.utils.keccak256(ethers.utils.toUtf8Bytes(doctorID + systemID))
+        await userRegister(Role.Doctor, doctorID, systemID, doctorAddress, users, owner, pk);
 
         // Ehr registration
         const ehrID = [...uuidParse("3efe3319-e0f7-4b96-bb5d-f9998398abf2"), ...new Uint8Array(16)]
@@ -394,31 +392,31 @@ describe("Docs contract", function () {
 
         // Granting access to the document to the doctor
         const idHash = ethers.utils.keccak256(addEhrDocParams.id)
-        const setDocAccessParams = [
-            idHash,
+        const setAccessParams = [
+            ethers.utils.keccak256(doctorIDHash, AccessKind.Doc),
             {
+                kind: AccessKind.Doc,
                 idHash: idHash,
                 idEncr: new Uint8Array(32),
                 keyEncr: new Uint8Array(32),
-                level: 3 // Read access
+                level: AccessLevel.Read
             },
-            doctorAddress,
             patientAddress
-        ]
+        ];
 
-        nonce = await docs.nonces(patientAddress);
-        payload = docs.interface.encodeFunctionData('setDocAccess', [...setDocAccessParams, new Uint8Array(65)]);
+        nonce = await accessStore.nonces(patientAddress);
+        payload = accessStore.interface.encodeFunctionData('setAccess', [...setAccessParams, new Uint8Array(65)]);
         const signature = getSignedMessage(payload, patientPrivateKey, nonce);
         
-        await docs.setDocAccess(...setDocAccessParams, signature);
+        await accessStore.setAccess(...setAccessParams, signature);
     })
 
     it("Deleting EHR document", async function () {
-        const { docs, users, owner, pk } = await loadFixture(deployFixture);
+        const { docs, users, accessStore, owner, pk } = await loadFixture(deployFixture);
 
         const userID = "patient";
         const userIDHash = ethers.utils.keccak256(ethers.utils.toUtf8Bytes(userID + systemID))
-        await userRegister(rolePatient, userID, systemID, patientAddress, users, owner, pk);
+        await userRegister(Role.Patient, userID, systemID, patientAddress, users, owner, pk);
 
         const ehrID = [...uuidParse("3efe3319-e0f7-4b96-bb5d-f9998398abf2"), ...new Uint8Array(16)]
         await ehrRegister(docs, ehrID, userIDHash, owner.address, pk);
@@ -464,12 +462,12 @@ describe("Docs contract", function () {
     })
 
     it("Creating EHR document group", async function () {
-        const { docs, users, owner, pk } = await loadFixture(deployFixture);
+        const { docs, users, accessStore, owner, pk } = await loadFixture(deployFixture);
 
         // Patient's registration
         const userID = "patient";
         const userIDHash = ethers.utils.keccak256(ethers.utils.toUtf8Bytes(userID + systemID))
-        await userRegister(rolePatient, userID, systemID, patientAddress, users, owner, pk);
+        await userRegister(Role.Patient, userID, systemID, patientAddress, users, owner, pk);
 
         // Document group creating
         const groupID = "groupTest";
@@ -500,12 +498,12 @@ describe("Docs contract", function () {
     })
 
     it("Adding a EHR document to the group", async function () {
-        const { docs, users, owner, pk } = await loadFixture(deployFixture);
+        const { docs, users, accessStore, owner, pk } = await loadFixture(deployFixture);
 
         // Patient's registration
-        const userID = "patient";
-        const userIDHash = ethers.utils.keccak256(ethers.utils.toUtf8Bytes(userID + systemID))
-        await userRegister(rolePatient, userID, systemID, patientAddress, users, owner, pk);
+        const patientID = "patient";
+        const patientIDHash = ethers.utils.keccak256(ethers.utils.toUtf8Bytes(patientID + systemID))
+        await userRegister(Role.Patient, patientID, systemID, patientAddress, users, owner, pk);
 
         // Document group creating
         const groupID = "groupTest";
@@ -528,6 +526,26 @@ describe("Docs contract", function () {
 
         await docs.docGroupCreate(params);
 
+        // Granting access to the document group to the patient
+        const patientAccessID = ethers.utils.keccak256([...ethers.utils.arrayify(patientIDHash), ...AccessKind.DocGroup]);
+        const setAccessParams = [
+            patientAccessID,
+            {
+                kind: AccessKind.DocGroup,
+                idHash: groupIDHash,
+                idEncr: new Uint8Array(32),
+                keyEncr: new Uint8Array(32),
+                level: AccessLevel.Owner
+            },
+            patientAddress
+        ];
+
+        nonce = await accessStore.nonces(patientAddress);
+        payload = accessStore.interface.encodeFunctionData('setAccess', [...setAccessParams, new Uint8Array(65)]);
+        var signature = getSignedMessage(payload, patientPrivateKey, nonce);
+        
+        await accessStore.setAccess(...setAccessParams, signature);
+
         // Adding a document to the group
         const docCIDHash = ethers.utils.keccak256(ethers.utils.toUtf8Bytes("docCIDTest"));
         const docCIDEncr = new Uint8Array([1, 2, 3]);
@@ -540,7 +558,7 @@ describe("Docs contract", function () {
 
         nonce = await docs.nonces(patientAddress);
         payload = docs.interface.encodeFunctionData('docGroupAddDoc', [...addDocParams, new Uint8Array(65)]);
-        const signature = getSignedMessage(payload, patientPrivateKey, nonce);
+        signature = getSignedMessage(payload, patientPrivateKey, nonce);
 
         await docs.docGroupAddDoc(...addDocParams, signature);
 

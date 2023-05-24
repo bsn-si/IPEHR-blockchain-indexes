@@ -24,11 +24,7 @@ async function main() {
   await accessStore.deployed();
   console.log("AccessStore deployed to:", accessStore.address);
 
-  const Users = await ethers.getContractFactory("Users", {
-      libraries: {
-        Attributes: Lib.address
-      }
-  });
+  const Users = await ethers.getContractFactory("Users");
   const users = await Users.deploy(accessStore.address);
   await users.deployed();
   console.log("Users deployed to:", users.address);
