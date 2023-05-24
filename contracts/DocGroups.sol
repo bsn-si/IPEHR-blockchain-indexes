@@ -43,16 +43,6 @@ abstract contract DocGroups is Docs {
         for (uint i; i < p.attrs.length; i++) {
             docGroups[p.groupIDHash].attrs.push(p.attrs[i]);
         }
-
-        IAccessStore(accessStore).setAccess(
-            keccak256((abi.encode(ownerIDHash, IAccessStore.AccessKind.DocGroup))), 
-            IAccessStore.Access({
-                idHash: p.groupIDHash,
-                idEncr: Attributes.get(p.attrs, Attributes.Code.IDEncr),
-                keyEncr: Attributes.get(p.attrs, Attributes.Code.KeyEncr),
-                level: IAccessStore.AccessLevel.Owner
-            })
-        );
     }
 
     function docGroupAddDoc(
@@ -76,7 +66,8 @@ abstract contract DocGroups is Docs {
             IAccessStore.AccessKind.DocGroup, 
             groupIDHash
         ).level;
-        require(level == IAccessStore.AccessLevel.Owner || level == IAccessStore.AccessLevel.Admin, "DND");
+
+        require(level == IAccessStore.AccessLevel.Owner || level == IAccessStore.AccessLevel.Admin, "DNY");
 
         // Checking the duplicate
         require(docGroups[groupIDHash].CIDHashes[docCIDHash] == false, "AEX");

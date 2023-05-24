@@ -15,7 +15,7 @@ contract EhrIndexer is Multicall, Docs, DocGroups {
       LST - new version of the EHR document must be the latest
       NFD - not found
       AEX - already exists
-      DND - access denied
+      DNY - access denied
       TMT - timeout
       NNC - wrong nonce
       SIG - invalid signature
