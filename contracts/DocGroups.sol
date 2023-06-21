@@ -64,7 +64,7 @@ abstract contract DocGroups is Docs {
             IAccessStore.AccessKind.DocGroup, 
             groupIDHash
         ).level;
-        require(level == IAccessStore.AccessLevel.Owner || level == IAccessStore.AccessLevel.Admin, "DND");
+        require(level == IAccessStore.AccessLevel.Owner || level == IAccessStore.AccessLevel.Admin, "DNY");
 
         // Checking the duplicate
         require(docGroups[groupIDHash].CIDHashes[docCIDHash] == false, "AEX");
