@@ -14,10 +14,16 @@ abstract contract Docs is ImmutableState, Restrictable {
     mapping (bytes32 => bool) private cids;
 
     ///
-    function setEhrUser(bytes32 IDHash, bytes32 ehrId, address signer, bytes calldata signature)
+    function setEhrUser(
+        bytes32 IDHash,
+        bytes32 ehrId,
+        address signer,
+        uint deadline,
+        bytes calldata signature
+    )
         external onlyAllowed(msg.sender)
     {
-        signCheck(signer, signature);
+        signCheck(signer, deadline, signature);
         require(ehrUsers[IDHash] == bytes32(0), "AEX");
         ehrUsers[IDHash] = ehrId;
     }
@@ -32,11 +38,12 @@ abstract contract Docs is ImmutableState, Restrictable {
         bytes32 subjectKey,
         bytes32 ehrId,
         address signer,
+        uint deadline,
         bytes calldata signature
     )
         external onlyAllowed(msg.sender)
     {
-        signCheck(signer, signature);
+        signCheck(signer, deadline, signature);
         ehrSubject[subjectKey] = ehrId;
     }
 
@@ -62,7 +69,7 @@ abstract contract Docs is ImmutableState, Restrictable {
     function addEhrDoc(IDocs.AddEhrDocParams calldata p)
         external onlyAllowed(msg.sender)
     {
-        signCheck(p.signer, p.signature);
+        signCheck(p.signer, p.deadline, p.signature);
 
         bytes32 userIDHash = IUsers(users).getUser(p.signer).IDHash;
         require(userIDHash != bytes32(0), "NFD1");
@@ -119,6 +126,18 @@ abstract contract Docs is ImmutableState, Restrictable {
         }
 
         if (p.docType == IDocs.Type.Query) return;
+
+        /*
+        IAccessStore(accessStore).setAccess(
+            keccak256(abi.encode(userIDHash, IAccessStore.AccessKind.Doc)),
+            IAccessStore.Access({
+                idHash: IDHash,
+                idEncr: Attributes.get(p.attrs, Attributes.Code.IDEncr),
+                keyEncr: Attributes.get(p.attrs, Attributes.Code.KeyEncr),
+                level: IAccessStore.AccessLevel.Admin
+            }
+        ));
+        */
     }
 
     ///
@@ -198,11 +217,12 @@ abstract contract Docs is ImmutableState, Restrictable {
         bytes32    docBaseUIDHash,
         bytes32    version,
         address    signer,
+        uint deadline,
         bytes calldata  signature
     )
         external onlyAllowed(msg.sender)
     {
-        signCheck(signer, signature);
+        signCheck(signer, deadline, signature);
 
         require(docType == IDocs.Type.Composition || docType == IDocs.Type.Directory, "WTP");
 

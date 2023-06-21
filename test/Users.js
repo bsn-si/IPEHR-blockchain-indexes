@@ -15,13 +15,12 @@ function toHexString(byteArray) {
   }).join('')
 }
 
-const getSignedMessage = async (payload, pk, nonce) => {
+const getSignedMessage = async (payload, pk, deadline) => {
     payload = payload.slice(0, payload.length - 97*2);
     const payloadHash = ethers.utils.keccak256(payload);
-    nonce++;
     const prefixed = ethers.utils.solidityPack(
         ["string", "bytes32", "uint"],
-        ["\x19Ethereum Signed Message:\n32", payloadHash, nonce]
+        ["\x19Ethereum Signed Message:\n32", payloadHash, deadline]
     );
     const prefixedHash = ethers.utils.keccak256(prefixed);
 
@@ -40,6 +39,7 @@ const getSignedMessage = async (payload, pk, nonce) => {
 
 describe("Users contract", function () {
     const systemID = "systemID";
+    const timeout = 5 * 60; // 5min
     const patientAddress = "0x95f5e95e5871fd1c85a33c41b32d8a5b13b2d412";
     const patientPrivateKey = "0x15a8ebd8cb4a01dffd96d1b9c1e04a1c4356c2cdba603a12f4d4545a342a4a1e";
     const patientSigner = new ethers.Wallet(patientPrivateKey);
@@ -76,18 +76,19 @@ describe("Users contract", function () {
 
     async function userRegister(role, userID, systemID, userAddress, usersContract, contractOwner, ownerPrivateKey) {
         const userIDHash = ethers.utils.keccak256(ethers.utils.toUtf8Bytes(userID + systemID))
+        const deadline = Math.floor(Date.now() / 1000) + timeout;
 
         const params = [
             userAddress,
             userIDHash,
             role,
             [],
-            contractOwner.address
+            contractOwner.address,
+            deadline
         ]
 
-        const nonce = await usersContract.nonces(contractOwner.address);
         const payload = usersContract.interface.encodeFunctionData('userNew', [...params, new Uint8Array(65)]);
-        const signature = getSignedMessage(payload, ownerPrivateKey, nonce);
+        const signature = getSignedMessage(payload, ownerPrivateKey, deadline);
 
         const user = await usersContract.userNew(...params, signature);
         return user;
@@ -139,18 +140,19 @@ describe("Users contract", function () {
 
         const groupID = "groupTest";
         const groupIDHash = ethers.utils.keccak256(ethers.utils.toUtf8Bytes(groupID + systemID))
+        const deadline = Math.floor(Date.now() / 1000) + timeout;
 
         const params = [
             groupIDHash,
             [
                 [1, ethers.utils.toUtf8Bytes("test")]   // Attribute: ID: test
             ],
-            patientAddress
+            patientAddress,
+            deadline
         ]
 
-        const nonce = await users.nonces(patientAddress);
         const payload = users.interface.encodeFunctionData('userGroupCreate', [...params, new Uint8Array(65)]);
-        const signature = getSignedMessage(payload, patientPrivateKey, nonce);
+        const signature = getSignedMessage(payload, patientPrivateKey, deadline);
 
         await users.userGroupCreate(...params, signature);
 
@@ -169,18 +171,19 @@ describe("Users contract", function () {
         // Group registration
         const groupID = "groupTest";
         const groupIDHash = ethers.utils.keccak256(ethers.utils.toUtf8Bytes(groupID + systemID))
+        const deadline = Math.floor(Date.now() / 1000) + timeout;
 
         var params = [
             groupIDHash,
             [
                 [1, ethers.utils.toUtf8Bytes("test")]   // Attribute: ID: test
             ],
-            patientAddress
+            patientAddress,
+            deadline
         ]
 
-        var nonce = await users.nonces(patientAddress);
         var payload = users.interface.encodeFunctionData('userGroupCreate', [...params, new Uint8Array(65)]);
-        var signature = getSignedMessage(payload, patientPrivateKey, nonce);
+        var signature = getSignedMessage(payload, patientPrivateKey, deadline);
         await users.userGroupCreate(...params, signature);
 
         // Granting access to group to the patient
@@ -194,12 +197,12 @@ describe("Users contract", function () {
                 keyEncr: new Uint8Array(32),
                 level: AccessLevel.Owner
             },
-            patientAddress
+            patientAddress,
+            deadline
         ];
 
-        nonce = await accessStore.nonces(patientAddress);
         payload = accessStore.interface.encodeFunctionData('setAccess', [...setAccessParams, new Uint8Array(65)]);
-        var signature = getSignedMessage(payload, patientPrivateKey, nonce);
+        signature = getSignedMessage(payload, patientPrivateKey, deadline);
         
         await accessStore.setAccess(...setAccessParams, signature);
 
@@ -216,12 +219,12 @@ describe("Users contract", function () {
             userIDEncr: userIDEncr,
             keyEncr: new Uint8Array([255, 255, 255]),
             signer: patientAddress,
+            deadline,
             signature: new Uint8Array(65)
         };
 
-        nonce = await users.nonces(patientAddress);
         payload = users.interface.encodeFunctionData('groupAddUser', [groupAddParams]);
-        signature = getSignedMessage(payload, patientPrivateKey, nonce);
+        signature = getSignedMessage(payload, patientPrivateKey, deadline);
         groupAddParams.signature = signature;
 
         await users.groupAddUser(groupAddParams);
@@ -242,18 +245,19 @@ describe("Users contract", function () {
         // Group registration
         const groupID = "groupTest";
         const groupIDHash = ethers.utils.keccak256(ethers.utils.toUtf8Bytes(groupID + systemID))
+        const deadline = Math.floor(Date.now() / 1000) + timeout;
 
         var params = [
             groupIDHash,
             [
                 [1, ethers.utils.toUtf8Bytes("test")]   // Attribute: ID: test
             ],
-            patientAddress
+            patientAddress,
+            deadline
         ]
 
-        var nonce = await users.nonces(patientAddress);
         var payload = users.interface.encodeFunctionData('userGroupCreate', [...params, new Uint8Array(65)]);
-        var signature = getSignedMessage(payload, patientPrivateKey, nonce);
+        var signature = getSignedMessage(payload, patientPrivateKey, deadline);
         await users.userGroupCreate(...params, signature);
 
         // Granting access to group to the patient
@@ -267,12 +271,12 @@ describe("Users contract", function () {
                 keyEncr: new Uint8Array(32),
                 level: AccessLevel.Owner
             },
-            patientAddress
+            patientAddress,
+            deadline
         ];
 
-        nonce = await accessStore.nonces(patientAddress);
         payload = accessStore.interface.encodeFunctionData('setAccess', [...setAccessParams, new Uint8Array(65)]);
-        var signature = getSignedMessage(payload, patientPrivateKey, nonce);
+        signature = getSignedMessage(payload, patientPrivateKey, deadline);
         
         await accessStore.setAccess(...setAccessParams, signature);
 
@@ -289,12 +293,12 @@ describe("Users contract", function () {
             userIDEncr: userIDEncr,
             keyEncr: new Uint8Array([255, 255, 255]),
             signer: patientAddress,
+            deadline,
             signature: new Uint8Array(65)
         };
 
-        nonce = await users.nonces(patientAddress);
         payload = users.interface.encodeFunctionData('groupAddUser', [groupAddUserParams]);
-        signature = getSignedMessage(payload, patientPrivateKey, nonce);
+        signature = getSignedMessage(payload, patientPrivateKey, deadline);
         groupAddUserParams.signature = signature;
 
         await users.groupAddUser(groupAddUserParams);
@@ -305,12 +309,12 @@ describe("Users contract", function () {
         const groupRemoveUserParams = [
             groupIDHash,
             userIDHash,
-            patientAddress
+            patientAddress,
+            deadline
         ]
 
-        nonce = await users.nonces(patientAddress);
         payload = users.interface.encodeFunctionData('groupRemoveUser', [...groupRemoveUserParams, new Uint8Array(65)]);
-        signature = getSignedMessage(payload, patientPrivateKey, nonce);
+        signature = getSignedMessage(payload, patientPrivateKey, deadline);
 
         await users.groupRemoveUser(...groupRemoveUserParams, signature);
         group = await users.userGroupGetByID(groupIDHash);
@@ -328,18 +332,19 @@ describe("Users contract", function () {
         // Group registration
         const groupID = "groupTest";
         const groupIDHash = ethers.utils.keccak256(ethers.utils.toUtf8Bytes(groupID + systemID))
+        const deadline = Math.floor(Date.now() / 1000) + timeout;
 
         var params = [
             groupIDHash,
             [
                 [1, ethers.utils.toUtf8Bytes("test")]   // Attribute: ID: test
             ],
-            patientAddress
+            patientAddress,
+            deadline
         ]
 
-        var nonce = await users.nonces(patientAddress);
         var payload = users.interface.encodeFunctionData('userGroupCreate', [...params, new Uint8Array(65)]);
-        var signature = getSignedMessage(payload, patientPrivateKey, nonce);
+        var signature = getSignedMessage(payload, patientPrivateKey, deadline);
         await users.userGroupCreate(...params, signature);
 
         // Granting access to group to the patient
@@ -353,12 +358,12 @@ describe("Users contract", function () {
                 keyEncr: new Uint8Array(32),
                 level: AccessLevel.Owner
             },
-            patientAddress
+            patientAddress,
+            deadline
         ];
 
-        nonce = await accessStore.nonces(patientAddress);
         payload = accessStore.interface.encodeFunctionData('setAccess', [...setAccessParams, new Uint8Array(65)]);
-        var signature = getSignedMessage(payload, patientPrivateKey, nonce);
+        signature = getSignedMessage(payload, patientPrivateKey, deadline);
         
         await accessStore.setAccess(...setAccessParams, signature);
 
@@ -375,12 +380,12 @@ describe("Users contract", function () {
             userIDEncr: userIDEncr,
             keyEncr: new Uint8Array([255, 255, 255]),
             signer: patientAddress,
+            deadline,
             signature: new Uint8Array(65)
         };
 
-        nonce = await users.nonces(patientAddress);
         payload = users.interface.encodeFunctionData('groupAddUser', [groupAddUserParams]);
-        signature = getSignedMessage(payload, patientPrivateKey, nonce);
+        signature = getSignedMessage(payload, patientPrivateKey, deadline);
         groupAddUserParams.signature = signature;
 
         await users.groupAddUser(groupAddUserParams);
@@ -391,12 +396,12 @@ describe("Users contract", function () {
         const groupRemoveUserParams = [
             groupIDHash,
             userIDHash,
-            doctorAddress
+            doctorAddress,
+            deadline
         ]
 
-        nonce = await users.nonces(doctorAddress);
         payload = users.interface.encodeFunctionData('groupRemoveUser', [...groupRemoveUserParams, new Uint8Array(65)]);
-        signature = getSignedMessage(payload, doctorPrivateKey, nonce);
+        signature = getSignedMessage(payload, doctorPrivateKey, deadline);
 
         await expect(
             users.groupRemoveUser(...groupRemoveUserParams, signature)

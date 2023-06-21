@@ -49,9 +49,18 @@ const config: HardhatUserConfig = {
       url: process.env.GOERLI_URL || "",
       accounts: process.env.PRIVATE_KEY !== undefined ? [process.env.PRIVATE_KEY] : [],
     },
+    sepolia: {
+      url: process.env.SEPOLIA_URL || "",
+      accounts: process.env.PRIVATE_KEY !== undefined ? [process.env.PRIVATE_KEY] : [],
+    },
     Hyperspace: {
     	chainId: 3141,
         url: "https://api.hyperspace.node.glif.io/rpc/v1",
+        accounts: process.env.PRIVATE_KEY !== undefined ? [process.env.PRIVATE_KEY] : [],
+    },
+    Calibration: {
+    	chainId: 314159,
+        url: "https://api.calibration.node.glif.io/rpc/v1",
         accounts: process.env.PRIVATE_KEY !== undefined ? [process.env.PRIVATE_KEY] : [],
     },
     FilecoinMainnet: {

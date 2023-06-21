@@ -3,7 +3,6 @@ pragma solidity ^0.8.17;
 
 import "./interfaces/IUsers.sol";
 import "./Docs.sol";
-import "hardhat/console.sol";
 
 abstract contract DocGroups is Docs {
     struct DocumentGroup {
@@ -17,28 +16,26 @@ abstract contract DocGroups is Docs {
 
     struct DocGroupCreateParams {
         bytes32     groupIDHash;       
+        //bytes       userIDEncr;      // user id   encrypted with group key
         Attributes.Attribute[] attrs;
-            // Expected attributes:
-            // group id   encrypted with group key
-            // group key  encrypted with group key
-            // group name encrypted with group key
-        
+            // group id  encrypted with user pub key
+            // group key encrypted with user pub key
         address     signer;
+        uint        deadline;
         bytes       signature;
     }
 
     function docGroupCreate(DocGroupCreateParams calldata p) 
         external 
     {
-        signCheck(p.signer, p.signature);
-
-        require(p.attrs.length >= 3, "REQ");
+        signCheck(p.signer, p.deadline, p.signature);
 
         // Checking the duplicate        
         require(Attributes.get(docGroups[p.groupIDHash].attrs, Attributes.Code.NameEncr).length == 0, "AEX");
 
         bytes32 ownerIDHash = IUsers(users).getUser(p.signer).IDHash;
         require(ownerIDHash != bytes32(0), "NFD");
+        require(p.attrs.length > 0, "REQ");
 
         for (uint i; i < p.attrs.length; i++) {
             docGroups[p.groupIDHash].attrs.push(p.attrs[i]);
@@ -50,11 +47,12 @@ abstract contract DocGroups is Docs {
         bytes32 docCIDHash,
         bytes calldata docCIDEncr,
         address signer,
+        uint deadline,
         bytes calldata signature
     ) 
         external 
     {
-        signCheck(signer, signature);
+        signCheck(signer, deadline, signature);
 
         // Checking user existence
         bytes32 userIDHash = IUsers(users).getUser(signer).IDHash;
@@ -66,7 +64,6 @@ abstract contract DocGroups is Docs {
             IAccessStore.AccessKind.DocGroup, 
             groupIDHash
         ).level;
-
         require(level == IAccessStore.AccessLevel.Owner || level == IAccessStore.AccessLevel.Admin, "DNY");
 
         // Checking the duplicate

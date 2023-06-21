@@ -6,7 +6,6 @@ import "@openzeppelin/contracts/utils/cryptography/SignatureChecker.sol";
 contract Restrictable {
   address private _owner;
   mapping (address => bool) public allowedChange;
-  mapping (address => uint) public nonces;
 
   constructor() {
     _owner = msg.sender;
@@ -40,12 +39,12 @@ contract Restrictable {
         _owner = newOwner;
     }
 
-  function signCheck(address signer, bytes calldata signature) internal {
-    nonces[signer]++;
+  function signCheck(address signer, uint deadline, bytes calldata signature) internal view {
+    require(block.timestamp <= deadline, "TMT");
 
     bool valid = SignatureChecker.isValidSignatureNow(
       signer, 
-      keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32", keccak256(msg.data[:msg.data.length - 97]), nonces[signer])), 
+      keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32", keccak256(msg.data[:msg.data.length - 97]), deadline)), 
       signature
     );
   

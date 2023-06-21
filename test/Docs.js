@@ -13,13 +13,12 @@ function toHexString(byteArray) {
   }).join('')
 }
 
-const getSignedMessage = async (payload, pk, nonce) => {
+const getSignedMessage = async (payload, pk, deadline) => {
     payload = payload.slice(0, payload.length - 97*2);
     const payloadHash = ethers.utils.keccak256(payload);
-    nonce++;
     const prefixed = ethers.utils.solidityPack(
         ["string", "bytes32", "uint"],
-        ["\x19Ethereum Signed Message:\n32", payloadHash, nonce]
+        ["\x19Ethereum Signed Message:\n32", payloadHash, deadline]
     );
     const prefixedHash = ethers.utils.keccak256(prefixed);
 
@@ -38,6 +37,7 @@ const getSignedMessage = async (payload, pk, nonce) => {
 
 describe("Docs contract", function () {
     const systemID = "systemID";
+    const timeout = 5 * 60; // 5min
     const patientAddress = "0x95f5e95e5871fd1c85a33c41b32d8a5b13b2d412";
     const patientPrivateKey = "0x15a8ebd8cb4a01dffd96d1b9c1e04a1c4356c2cdba603a12f4d4545a342a4a1e";
     const patientSigner = new ethers.Wallet(patientPrivateKey);
@@ -82,32 +82,34 @@ describe("Docs contract", function () {
 
     async function userRegister(role, userID, systemID, userAddress, usersContract, contractOwner, ownerPrivateKey) {
         const userIDHash = ethers.utils.keccak256(ethers.utils.toUtf8Bytes(userID + systemID))
+        const deadline = Math.floor(Date.now() / 1000) + timeout;
 
         const params = [
             userAddress,
             userIDHash,
             role,
             [],
-            contractOwner.address
+            contractOwner.address,
+            deadline
         ]
 
-        const nonce = await usersContract.nonces(contractOwner.address);
         const payload = usersContract.interface.encodeFunctionData('userNew', [...params, new Uint8Array(65)]);
-        const signature = getSignedMessage(payload, ownerPrivateKey, nonce);
+        const signature = getSignedMessage(payload, ownerPrivateKey, deadline);
 
         const user = await usersContract.userNew(...params, signature);
         return user;
     }
 
     async function ehrRegister(docsContract, ehrID, userIDHash, ownerAddress, ownerPrivKey) {
+        const deadline = Math.floor(Date.now() / 1000) + timeout;
         const params = [
             userIDHash,
             ehrID,
-            ownerAddress
+            ownerAddress,
+            deadline
         ];
-        const nonce = await docsContract.nonces(ownerAddress);
         const payload = docsContract.interface.encodeFunctionData('setEhrUser', [...params, new Uint8Array(65)]);
-        const signature = getSignedMessage(payload, ownerPrivKey, nonce);
+        const signature = getSignedMessage(payload, ownerPrivKey, deadline);
 
         await docsContract.setEhrUser(...params, signature);
     }
@@ -130,15 +132,16 @@ describe("Docs contract", function () {
 
         const ehrID = [...uuidParse("3efe3319-e0f7-4b96-bb5d-f9998398abf2"), ...new Uint8Array(16)]
         const ehrSubjectKey = [...uuidParse("634f3989-d9af-4053-ad54-c33745500074"), ...new Uint8Array(16)]
+        const deadline = Math.floor(Date.now() / 1000) + timeout;
 
         const params = [
             ehrSubjectKey,
             ehrID,
-            owner.address
+            owner.address,
+            deadline
         ];
-        const nonce = await docs.nonces(owner.address);
         const payload = docs.interface.encodeFunctionData('setEhrSubject', [...params, new Uint8Array(65)]);
-        const signature = getSignedMessage(payload, pk, nonce);
+        const signature = getSignedMessage(payload, pk, deadline);
 
         await docs.setEhrSubject(...params, signature);
 
@@ -157,6 +160,8 @@ describe("Docs contract", function () {
         const ehrID = [...uuidParse("3efe3319-e0f7-4b96-bb5d-f9998398abf2"), ...new Uint8Array(16)]
         await ehrRegister(docs, ehrID, userIDHash, owner.address, pk);
 
+        const deadline = Math.floor(Date.now() / 1000) + timeout;
+
         const addEhrDocParams = {
             docType: 0, // Type EHR
             id: crypto.randomBytes(32),
@@ -164,12 +169,12 @@ describe("Docs contract", function () {
             timestamp: Math.round(new Date() / 1000), 
             attrs: [],
             signer: patientAddress,
+            deadline,
             signature: new Uint8Array(65)
         };
 
-        const nonce = await docs.nonces(patientAddress);
         const payload = docs.interface.encodeFunctionData('addEhrDoc', [addEhrDocParams]);
-        addEhrDocParams.signature = getSignedMessage(payload, patientPrivateKey, nonce);
+        addEhrDocParams.signature = getSignedMessage(payload, patientPrivateKey, deadline);
 
         await docs.addEhrDoc(addEhrDocParams);
     })
@@ -186,6 +191,8 @@ describe("Docs contract", function () {
 
         const docType = 2; // Type EHR_STATUS
 
+        const deadline = Math.floor(Date.now() / 1000) + timeout;
+
         const addEhrDocParams = {
             docType: docType, // Type EHR_STATUS
             id: crypto.randomBytes(32),
@@ -193,12 +200,12 @@ describe("Docs contract", function () {
             timestamp: Math.round(new Date() / 1000), 
             attrs: [],
             signer: patientAddress,
+            deadline,
             signature: new Uint8Array(65)
         };
 
-        const nonce = await docs.nonces(patientAddress);
         const payload = docs.interface.encodeFunctionData('addEhrDoc', [addEhrDocParams]);
-        addEhrDocParams.signature = getSignedMessage(payload, patientPrivateKey, nonce);
+        addEhrDocParams.signature = getSignedMessage(payload, patientPrivateKey, deadline);
 
         await docs.addEhrDoc(addEhrDocParams);
 
@@ -218,6 +225,8 @@ describe("Docs contract", function () {
 
         const docType = 2; // Type EHR_STATUS
 
+        const deadline = Math.floor(Date.now() / 1000) + timeout;
+
         // Adding document 1
         const addEhrDocParams1 = {
             docType: docType, // Type EHR_STATUS
@@ -226,12 +235,12 @@ describe("Docs contract", function () {
             timestamp: Math.round(new Date() / 1000), 
             attrs: [],
             signer: patientAddress,
+            deadline,
             signature: new Uint8Array(65)
         };
 
-        var nonce = await docs.nonces(patientAddress);
         var payload = docs.interface.encodeFunctionData('addEhrDoc', [addEhrDocParams1]);
-        addEhrDocParams1.signature = getSignedMessage(payload, patientPrivateKey, nonce);
+        addEhrDocParams1.signature = getSignedMessage(payload, patientPrivateKey, deadline);
 
         await docs.addEhrDoc(addEhrDocParams1);
 
@@ -243,12 +252,12 @@ describe("Docs contract", function () {
             timestamp: Math.round(new Date() / 1000), 
             attrs: [],
             signer: patientAddress,
+            deadline,
             signature: new Uint8Array(65)
         };
 
-        nonce = await docs.nonces(patientAddress);
         payload = docs.interface.encodeFunctionData('addEhrDoc', [addEhrDocParams2]);
-        addEhrDocParams2.signature = getSignedMessage(payload, patientPrivateKey, nonce);
+        addEhrDocParams2.signature = getSignedMessage(payload, patientPrivateKey, deadline);
 
         await docs.addEhrDoc(addEhrDocParams2);
 
@@ -270,6 +279,7 @@ describe("Docs contract", function () {
         const docID = uuidv4();
         const docBaseID = docID + "::" + systemID
         const docBaseIDHash = ethers.utils.keccak256(ethers.utils.toUtf8Bytes(docBaseID)); 
+        const deadline = Math.floor(Date.now() / 1000) + timeout;
 
         const addEhrDocParams = {
             docType: docType,
@@ -280,12 +290,12 @@ describe("Docs contract", function () {
                 [4, docBaseIDHash]
             ],
             signer: patientAddress,
+            deadline,
             signature: new Uint8Array(65)
         };
 
-        const nonce = await docs.nonces(patientAddress);
         const payload = docs.interface.encodeFunctionData('addEhrDoc', [addEhrDocParams]);
-        addEhrDocParams.signature = getSignedMessage(payload, patientPrivateKey, nonce);
+        addEhrDocParams.signature = getSignedMessage(payload, patientPrivateKey, deadline);
 
         await docs.addEhrDoc(addEhrDocParams);
 
@@ -313,6 +323,7 @@ describe("Docs contract", function () {
         const docID = uuidv4();
         const docBaseID = docID + "::" + systemID
         const docBaseIDHash = ethers.utils.keccak256(ethers.utils.toUtf8Bytes(docBaseID)); 
+        const deadline = Math.floor(Date.now() / 1000) + timeout;
 
         // Adding document 1
         const addEhrDocParams = {
@@ -324,12 +335,12 @@ describe("Docs contract", function () {
                 [4, docBaseIDHash]
             ],
             signer: patientAddress,
+            deadline,
             signature: new Uint8Array(65)
         };
 
-        var nonce = await docs.nonces(patientAddress);
         var payload = docs.interface.encodeFunctionData('addEhrDoc', [addEhrDocParams]);
-        addEhrDocParams.signature = getSignedMessage(payload, patientPrivateKey, nonce);
+        addEhrDocParams.signature = getSignedMessage(payload, patientPrivateKey, deadline);
 
         await docs.addEhrDoc(addEhrDocParams);
 
@@ -343,12 +354,12 @@ describe("Docs contract", function () {
                 [4, docBaseIDHash]
             ],
             signer: patientAddress,
+            deadline,
             signature: new Uint8Array(65)
         };
 
-        nonce = await docs.nonces(patientAddress);
         payload = docs.interface.encodeFunctionData('addEhrDoc', [addEhrDocParams2]);
-        addEhrDocParams2.signature = getSignedMessage(payload, patientPrivateKey, nonce);
+        addEhrDocParams2.signature = getSignedMessage(payload, patientPrivateKey, deadline);
 
         await docs.addEhrDoc(addEhrDocParams2);
 
@@ -373,6 +384,8 @@ describe("Docs contract", function () {
         const ehrID = [...uuidParse("3efe3319-e0f7-4b96-bb5d-f9998398abf2"), ...new Uint8Array(16)]
         await ehrRegister(docs, ehrID, patientIDHash, owner.address, pk);
 
+        const deadline = Math.floor(Date.now() / 1000) + timeout;
+
         // Adding EHR document
         const addEhrDocParams = {
             docType: 0, // Type EHR
@@ -381,12 +394,12 @@ describe("Docs contract", function () {
             timestamp: Math.round(new Date() / 1000), 
             attrs: [],
             signer: patientAddress,
+            deadline,
             signature: new Uint8Array(65)
         };
 
-        var nonce = await docs.nonces(patientAddress);
         var payload = docs.interface.encodeFunctionData('addEhrDoc', [addEhrDocParams]);
-        addEhrDocParams.signature = getSignedMessage(payload, patientPrivateKey, nonce);
+        addEhrDocParams.signature = getSignedMessage(payload, patientPrivateKey, deadline);
 
         await docs.addEhrDoc(addEhrDocParams);
 
@@ -401,12 +414,12 @@ describe("Docs contract", function () {
                 keyEncr: new Uint8Array(32),
                 level: AccessLevel.Read
             },
-            patientAddress
+            patientAddress,
+            deadline
         ];
 
-        nonce = await accessStore.nonces(patientAddress);
         payload = accessStore.interface.encodeFunctionData('setAccess', [...setAccessParams, new Uint8Array(65)]);
-        const signature = getSignedMessage(payload, patientPrivateKey, nonce);
+        const signature = getSignedMessage(payload, patientPrivateKey, deadline);
         
         await accessStore.setAccess(...setAccessParams, signature);
     })
@@ -425,6 +438,7 @@ describe("Docs contract", function () {
         const docID = uuidv4();
         const docBaseID = docID + "::" + systemID
         const docBaseIDHash = ethers.utils.keccak256(ethers.utils.toUtf8Bytes(docBaseID)); 
+        const deadline = Math.floor(Date.now() / 1000) + timeout;
 
         const addEhrDocParams = {
             docType: docType,
@@ -435,12 +449,12 @@ describe("Docs contract", function () {
                 [4, docBaseIDHash]
             ],
             signer: patientAddress,
+            deadline,
             signature: new Uint8Array(65)
         };
 
-        var nonce = await docs.nonces(patientAddress);
         var payload = docs.interface.encodeFunctionData('addEhrDoc', [addEhrDocParams]);
-        addEhrDocParams.signature = getSignedMessage(payload, patientPrivateKey, nonce);
+        addEhrDocParams.signature = getSignedMessage(payload, patientPrivateKey, deadline);
 
         await docs.addEhrDoc(addEhrDocParams);
         const deleteDocParams = [
@@ -448,12 +462,12 @@ describe("Docs contract", function () {
             docType,
             docBaseIDHash,
             addEhrDocParams.version,
-            patientAddress
+            patientAddress,
+            deadline
         ];
 
-        nonce = await docs.nonces(patientAddress);
         payload = docs.interface.encodeFunctionData('deleteDoc', [...deleteDocParams, new Uint8Array(65)]);
-        const signature = getSignedMessage(payload, patientPrivateKey, nonce);
+        const signature = getSignedMessage(payload, patientPrivateKey, deadline);
 
         await docs.deleteDoc(...deleteDocParams, signature);
 
@@ -472,6 +486,7 @@ describe("Docs contract", function () {
         // Document group creating
         const groupID = "groupTest";
         const groupIDHash = ethers.utils.keccak256(ethers.utils.toUtf8Bytes(groupID + systemID))
+        const deadline = Math.floor(Date.now() / 1000) + timeout;
 
         const params = {
             groupIDHash: groupIDHash,
@@ -481,12 +496,12 @@ describe("Docs contract", function () {
                 [13, new Uint8Array([3, 3, 3])]   // Attribute Name encrypted
             ],
             signer: patientAddress,
+            deadline,
             signature: new Uint8Array(65)
         };
 
-        const nonce = await users.nonces(patientAddress);
         const payload = docs.interface.encodeFunctionData('docGroupCreate', [params]);
-        params.signature = getSignedMessage(payload, patientPrivateKey, nonce);
+        params.signature = getSignedMessage(payload, patientPrivateKey, deadline);
 
         await docs.docGroupCreate(params);
 
@@ -508,6 +523,7 @@ describe("Docs contract", function () {
         // Document group creating
         const groupID = "groupTest";
         const groupIDHash = ethers.utils.keccak256(ethers.utils.toUtf8Bytes(groupID + systemID));
+        const deadline = Math.floor(Date.now() / 1000) + timeout;
 
         const params = {
             groupIDHash: groupIDHash,
@@ -517,12 +533,12 @@ describe("Docs contract", function () {
                 [13, new Uint8Array([3, 3, 3])]   // Attribute Name encrypted
             ],
             signer: patientAddress,
+            deadline,
             signature: new Uint8Array(65)
         };
 
-        var nonce = await docs.nonces(patientAddress);
         var payload = docs.interface.encodeFunctionData('docGroupCreate', [params]);
-        params.signature = getSignedMessage(payload, patientPrivateKey, nonce);
+        params.signature = getSignedMessage(payload, patientPrivateKey, deadline);
 
         await docs.docGroupCreate(params);
 
@@ -537,12 +553,12 @@ describe("Docs contract", function () {
                 keyEncr: new Uint8Array(32),
                 level: AccessLevel.Owner
             },
-            patientAddress
+            patientAddress,
+            deadline
         ];
 
-        nonce = await accessStore.nonces(patientAddress);
         payload = accessStore.interface.encodeFunctionData('setAccess', [...setAccessParams, new Uint8Array(65)]);
-        var signature = getSignedMessage(payload, patientPrivateKey, nonce);
+        var signature = getSignedMessage(payload, patientPrivateKey, deadline);
         
         await accessStore.setAccess(...setAccessParams, signature);
 
@@ -553,12 +569,12 @@ describe("Docs contract", function () {
             groupIDHash,
             docCIDHash,
             docCIDEncr,
-            patientAddress
+            patientAddress,
+            deadline
         ];
 
-        nonce = await docs.nonces(patientAddress);
         payload = docs.interface.encodeFunctionData('docGroupAddDoc', [...addDocParams, new Uint8Array(65)]);
-        signature = getSignedMessage(payload, patientPrivateKey, nonce);
+        signature = getSignedMessage(payload, patientPrivateKey, deadline);
 
         await docs.docGroupAddDoc(...addDocParams, signature);
 

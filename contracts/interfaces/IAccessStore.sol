@@ -16,7 +16,7 @@ interface IAccessStore {
 
     function setUsersContractAddress(address _users) external;
     function getAccess(bytes32 accessID) external view returns(Access[] memory);
-    function setAccess(bytes32 accessID, Access memory o, address signer, bytes calldata signature) external returns(AccessAction);
+    function setAccess(bytes32 accessID, Access memory o, address signer, uint deadline, bytes calldata signature) external returns(AccessAction);
     function getAccessByIdHash(bytes32 accessID, bytes32 accessIdHash) external view returns(Access memory);
     function userAccess(bytes32 userID, AccessKind kind, bytes32 idHash) external view returns (Access memory);
 }

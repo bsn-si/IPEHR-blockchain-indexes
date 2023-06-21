@@ -35,6 +35,7 @@ interface IDocs {
         uint32      timestamp;
         Attributes.Attribute[] attrs;
         address     signer;
+        uint        deadline;
         bytes       signature;
     }
 
