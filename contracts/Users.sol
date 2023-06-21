@@ -25,12 +25,13 @@ contract Users is IUsers, ImmutableState, Restrictable, Multicall {
     bytes32 IDHash,        // sha3(userID+systemID) 
     Role role, 
     Attributes.Attribute[] calldata attrs,
-    address signer, 
+    address signer,
+    uint deadline,
     bytes calldata signature
   ) 
     external onlyAllowed(msg.sender) 
   {
-    signCheck(signer, signature);
+    signCheck(signer, deadline, signature);
 
     // Checking user existence
     require(usersStore[addr].IDHash == bytes32(0), "AEX");
@@ -71,11 +72,12 @@ contract Users is IUsers, ImmutableState, Restrictable, Multicall {
     bytes32 groupIdHash, 
     Attributes.Attribute[] calldata attrs, 
     address signer,
+    uint deadline,
     bytes calldata signature
   ) 
       external onlyAllowed(msg.sender) 
   {
-    signCheck(signer, signature);
+    signCheck(signer, deadline, signature);
 
     // Checking user existence
     require(usersStore[signer].IDHash != bytes32(0), "NFD");
@@ -92,7 +94,7 @@ contract Users is IUsers, ImmutableState, Restrictable, Multicall {
   ///
   function groupAddUser(GroupAddUserParams calldata p) external
   {
-    signCheck(p.signer, p.signature);
+    signCheck(p.signer, p.deadline, p.signature);
 
     // Checking access rights
     IAccessStore.Access memory signerAccess = IAccessStore(accessStore).userAccess(usersStore[p.signer].IDHash, IAccessStore.AccessKind.UserGroup, p.groupIDHash);
@@ -100,8 +102,8 @@ contract Users is IUsers, ImmutableState, Restrictable, Multicall {
 
     // Checking group is exist
     require(userGroups[p.groupIDHash].attrs.length > 0, "NFD");
-    
-    // Checking user not in group already
+
+    // Checking that user not in the group
     for (uint i; i < userGroups[p.groupIDHash].members.length; i++) {
       if (userGroups[p.groupIDHash].members[i].userIDHash == p.userIDHash) revert("AEX");
     }
@@ -117,12 +119,13 @@ contract Users is IUsers, ImmutableState, Restrictable, Multicall {
   function groupRemoveUser(
       bytes32 groupIDHash, 
       bytes32 userIDHash, 
-      address signer, 
+      address signer,
+      uint deadline,
       bytes calldata signature
   ) 
       external
   {
-    signCheck(signer, signature);
+    signCheck(signer, deadline, signature);
 
     // Checking access rights
     IAccessStore.AccessLevel signerAccessLevel = IAccessStore(accessStore).userAccess(usersStore[signer].IDHash, IAccessStore.AccessKind.UserGroup, groupIDHash).level;
@@ -135,6 +138,10 @@ contract Users is IUsers, ImmutableState, Restrictable, Multicall {
           userGroups[groupIDHash].members.pop();
       }
     }
+
+    // Removing a group's access key
+    // moved to the backend
+
   }
 
   function userGroupGetByID(bytes32 groupIdHash) external view returns(UserGroup memory) {

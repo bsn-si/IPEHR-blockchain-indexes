@@ -21,11 +21,12 @@ contract DataStore is ImmutableState, Restrictable {
         bytes32 ehrID,      // TODO remove after Treeindex refactoring
         bytes calldata data,
         address signer,
+        uint deadline,
         bytes calldata signature
     )
         external onlyAllowed(msg.sender) 
     {
-        signCheck(signer, signature);
+        signCheck(signer, deadline, signature);
 
         require(data.length > 0, "LEN");
 

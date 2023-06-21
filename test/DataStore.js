@@ -14,13 +14,12 @@ function toHexString(byteArray) {
   }).join('')
 }
 
-const getSignedMessage = async (payload, pk, nonce) => {
+const getSignedMessage = async (payload, pk, deadline) => {
     payload = payload.slice(0, payload.length - 97*2);
     const payloadHash = ethers.utils.keccak256(payload);
-    nonce++;
     const prefixed = ethers.utils.solidityPack(
         ["string", "bytes32", "uint"],
-        ["\x19Ethereum Signed Message:\n32", payloadHash, nonce]
+        ["\x19Ethereum Signed Message:\n32", payloadHash, deadline]
     );
     const prefixedHash = ethers.utils.keccak256(prefixed);
 
@@ -38,6 +37,8 @@ const getSignedMessage = async (payload, pk, nonce) => {
 };
 
 describe("DataStore contract", function () {
+    const timeout = 5 * 60; // 5min
+
     async function deployFixture() {
         const [owner, addr1, addr2] = await ethers.getSigners();
 
@@ -63,6 +64,7 @@ describe("DataStore contract", function () {
 
         const wallet = new ethers.Wallet(ownerPrivateKey);
         const pk = wallet.privateKey;
+        const deadline = Math.floor(Date.now() / 1000) + timeout;
 
         // User registering
         var params = [
@@ -70,11 +72,12 @@ describe("DataStore contract", function () {
             ethers.utils.keccak256(ethers.utils.toUtf8Bytes("owner" + "systemID")),
             0,
             [],
-            owner.address
+            owner.address,
+            deadline
         ]
 
         const payload = users.interface.encodeFunctionData('userNew', [...params, new Uint8Array(65)])
-        const signature = getSignedMessage(payload, pk, 0)
+        const signature = getSignedMessage(payload, pk, deadline)
 
         await users.userNew(...params, signature)
 
@@ -87,11 +90,11 @@ describe("DataStore contract", function () {
 		const dataID  = "0x41183c352e2a4747d6f301689aee900a64a0b5ff5e2c472b16ebcef67d864d8b"
 		const ehrID   = "0xff4f429557f6c8c19d41c8155e4cdd25defaae609ae6d8fb16aaf87fedd5f58c"
 		const data    = "0x010203"
-        const nonce = await dataStore.nonces(owner.address)
-        const payload = dataStore.interface.encodeFunctionData('dataUpdate', [groupID, dataID, ehrID, data, owner.address, new Uint8Array(65)])
-        const signature = getSignedMessage(payload, pk, nonce)
+        const deadline = Math.floor(Date.now() / 1000) + timeout;
+        const payload = dataStore.interface.encodeFunctionData('dataUpdate', [groupID, dataID, ehrID, data, owner.address, deadline, new Uint8Array(65)])
+        const signature = getSignedMessage(payload, pk, deadline)
 
-        const tx = await dataStore.dataUpdate(groupID, dataID, ehrID, data, owner.address, signature)
+        const tx = await dataStore.dataUpdate(groupID, dataID, ehrID, data, owner.address, deadline, signature)
         const receipt = await tx.wait()
         const events = receipt.events;
 

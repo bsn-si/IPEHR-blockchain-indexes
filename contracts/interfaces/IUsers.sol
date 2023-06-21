@@ -17,11 +17,31 @@ interface IUsers {
       bytes32 userIDHash;
       bytes userIDEncr;    // userIDs encrypted by group key
     }
+    
+    function userNew(
+        address addr, 
+        bytes32 IDHash,        // sha3(userID+systemID) 
+        Role role, 
+        Attributes.Attribute[] calldata attrs,
+        address signer,
+        uint deadline,
+        bytes calldata signature
+    ) external;
+
+    function getUser(address addr) external view returns(User memory);
 
     struct UserGroup {
       Attributes.Attribute[] attrs;
       GroupMember[] members;  
     }
+
+    function userGroupCreate(
+        bytes32 groupIdHash, 
+        Attributes.Attribute[] calldata attrs, 
+        address signer,
+        uint deadline,
+        bytes calldata signature
+    ) external;
 
     struct GroupAddUserParams {
         bytes32 groupIDHash;
@@ -30,33 +50,17 @@ interface IUsers {
         bytes userIDEncr;       // userID encrypted by group key
         bytes keyEncr;          // group key encrypted by adding user public key
         address signer;
+        uint deadline;
         bytes signature;
     }
-    
-    function userNew(
-        address addr, 
-        bytes32 IDHash,        // sha3(userID+systemID) 
-        Role role, 
-        Attributes.Attribute[] calldata attrs,
-        address signer, 
-        bytes calldata signature
-    ) external;
-
-    function getUser(address addr) external view returns(User memory);
-
-    function userGroupCreate(
-        bytes32 groupIdHash, 
-        Attributes.Attribute[] calldata attrs, 
-        address signer, 
-        bytes calldata signature
-    ) external;
 
     function groupAddUser(GroupAddUserParams calldata p) external;
 
     function groupRemoveUser(
       bytes32 groupIDHash, 
       bytes32 userIDHash, 
-      address signer, 
+      address signer,
+      uint deadline,
       bytes calldata signature
     ) external;
 

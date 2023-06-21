@@ -5,6 +5,10 @@ const networkConfig = {
         name: "Hyperspace",
         tokensToBeMinted: 12000,
     },
+    314159: {
+        name: "calibrationnet",
+        tokensToBeMinted: 12000,
+    },
     314: {
         name: "FilecoinMainnet",
         tokensToBeMinted: 12000,

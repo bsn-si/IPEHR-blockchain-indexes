@@ -16,13 +16,12 @@ function toHexString(byteArray) {
   }).join('')
 }
 
-const getSignedMessage = async (payload, pk, nonce) => {
+const getSignedMessage = async (payload, pk, deadline) => {
     payload = payload.slice(0, payload.length - 97*2);
     const payloadHash = ethers.utils.keccak256(payload);
-    nonce++;
     const prefixed = ethers.utils.solidityPack(
         ["string", "bytes32", "uint"],
-        ["\x19Ethereum Signed Message:\n32", payloadHash, nonce]
+        ["\x19Ethereum Signed Message:\n32", payloadHash, deadline]
     );
     const prefixedHash = ethers.utils.keccak256(prefixed);
 
@@ -41,6 +40,7 @@ const getSignedMessage = async (payload, pk, nonce) => {
 
 describe("AccessStore contract", function () {
     const systemID = "systemID";
+    const timeout = 5 * 60; // 5min
     const userAddress = "0x95f5e95e5871fd1c85a33c41b32d8a5b13b2d412";
     const userPrivateKey = "0x15a8ebd8cb4a01dffd96d1b9c1e04a1c4356c2cdba603a12f4d4545a342a4a1e";
     const userSigner = new ethers.Wallet(userPrivateKey);
@@ -67,18 +67,19 @@ describe("AccessStore contract", function () {
 
     async function userRegister(role, userID, systemID, userAddress, usersContract, contractOwner, ownerPrivateKey) {
         const userIDHash = ethers.utils.keccak256(ethers.utils.toUtf8Bytes(userID + systemID))
+        const deadline = Math.floor(Date.now() / 1000) + timeout;
 
         const params = [
             userAddress,
             userIDHash,
             role,
             [],
-            contractOwner.address
+            contractOwner.address,
+            deadline
         ]
 
-        const nonce = await usersContract.nonces(contractOwner.address);
         const payload = usersContract.interface.encodeFunctionData('userNew', [...params, new Uint8Array(65)]);
-        const signature = getSignedMessage(payload, ownerPrivateKey, nonce);
+        const signature = getSignedMessage(payload, ownerPrivateKey, deadline);
 
         const user = await usersContract.userNew(...params, signature);
         return user;
@@ -96,6 +97,7 @@ describe("AccessStore contract", function () {
         const userAccessID = ethers.utils.keccak256([...ethers.utils.arrayify(userIDHash), ...AccessKind.Doc]);
         const docID = crypto.randomBytes(32);
         const docIDHash = ethers.utils.keccak256(docID);
+        const deadline = Math.floor(Date.now() / 1000) + timeout;
         const setAccessParams = [
             userAccessID,
             {
@@ -105,12 +107,12 @@ describe("AccessStore contract", function () {
                 keyEncr: new Uint8Array(32),
                 level: AccessLevel.Owner
             },
-            userAddress
+            userAddress,
+            deadline
         ];
 
-        nonce = await accessStore.nonces(userAddress);
         payload = accessStore.interface.encodeFunctionData('setAccess', [...setAccessParams, new Uint8Array(65)]);
-        var signature = getSignedMessage(payload, userPrivateKey, nonce);
+        var signature = getSignedMessage(payload, userPrivateKey, deadline);
         
         await accessStore.setAccess(...setAccessParams, signature);
     })
@@ -127,6 +129,7 @@ describe("AccessStore contract", function () {
         const userAccessID = ethers.utils.keccak256([...ethers.utils.arrayify(userIDHash), ...AccessKind.Doc]);
         const docID = crypto.randomBytes(32);
         const docIDHash = ethers.utils.keccak256(docID);
+        const deadline = Math.floor(Date.now() / 1000) + timeout;
         const setAccessParams = [
             userAccessID,
             {
@@ -136,12 +139,12 @@ describe("AccessStore contract", function () {
                 keyEncr: new Uint8Array(32),
                 level: AccessLevel.Owner
             },
-            userAddress
+            userAddress,
+            deadline
         ];
 
-        nonce = await accessStore.nonces(userAddress);
         payload = accessStore.interface.encodeFunctionData('setAccess', [...setAccessParams, new Uint8Array(65)]);
-        var signature = getSignedMessage(payload, userPrivateKey, nonce);
+        var signature = getSignedMessage(payload, userPrivateKey, deadline);
         
         await accessStore.setAccess(...setAccessParams, signature);
 
@@ -161,6 +164,7 @@ describe("AccessStore contract", function () {
         const userAccessID = ethers.utils.keccak256([...ethers.utils.arrayify(userIDHash), ...AccessKind.Doc]);
         const docID = crypto.randomBytes(32);
         const docIDHash = ethers.utils.keccak256(docID);
+        const deadline = Math.floor(Date.now() / 1000) + timeout;
         const setAccessParams = [
             userAccessID,
             {
@@ -170,12 +174,12 @@ describe("AccessStore contract", function () {
                 keyEncr: new Uint8Array(32),
                 level: AccessLevel.Owner
             },
-            userAddress
+            userAddress,
+            deadline
         ];
 
-        nonce = await accessStore.nonces(userAddress);
         payload = accessStore.interface.encodeFunctionData('setAccess', [...setAccessParams, new Uint8Array(65)]);
-        var signature = getSignedMessage(payload, userPrivateKey, nonce);
+        var signature = getSignedMessage(payload, userPrivateKey, deadline);
         
         await accessStore.setAccess(...setAccessParams, signature);
 

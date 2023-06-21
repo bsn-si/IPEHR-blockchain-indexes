@@ -12,7 +12,8 @@ const wallet = new ethers.Wallet(private_key, ethers.provider)
 async function callRpc(method, params) {
   var options = {
     method: "POST",
-    url: "https://api.hyperspace.node.glif.io/rpc/v1",
+    //url: "https://api.hyperspace.node.glif.io/rpc/v1",
+    url: "https://api.calibration.node.glif.io/rpc/v1",
     headers: {
       "Content-Type": "application/json",
     },
@@ -31,6 +32,7 @@ module.exports = async ({ deployments }) => {
     console.log("Wallet Ethereum Address:", wallet.address)
     const chainId = network.config.chainId
 	const priorityFee = await callRpc("eth_maxPriorityFeePerGas");
+    console.log("priorityFee:", priorityFee)
     
 	// Attributes
   	console.log("Attributes  deploying...");
@@ -50,11 +52,7 @@ module.exports = async ({ deployments }) => {
 	console.log("AccessStore deployed to:", accessStore.address);
 
 	// Users
-	const Users = await ethers.getContractFactory("Users", {
-	  libraries: {
-		Attributes: Lib.address
-	  }
-	});
+	const Users = await ethers.getContractFactory("Users");
 	const users = await Users.deploy(accessStore.address, {
         maxPriorityFeePerGas: priorityFee
     });
