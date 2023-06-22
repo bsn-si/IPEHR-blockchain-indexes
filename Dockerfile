@@ -26,4 +26,4 @@ RUN npx hardhat compile
 
 EXPOSE 8545
 
-CMD (npx hardhat node --hostname 0.0.0.0 --network hardhat --no-deploy &) && sleep 10 && npx hardhat run scripts/deploy.ts --network localhost && wait
+CMD (npx hardhat node --hostname 0.0.0.0 --network hardhat --no-deploy &) && sleep 10 && npx hardhat run scripts/deploy.ts --network localhost && sleep infinity
