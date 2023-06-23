@@ -237,4 +237,17 @@ abstract contract Docs is ImmutableState, Restrictable {
         }
         revert("NFD");
     }
+
+    ///
+    function setAccess(
+        bytes32 accessID,
+        IAccessStore.Access memory a,
+        address signer,
+        uint deadline,
+        bytes calldata signature
+    )
+        external
+    {
+        IAccessStore(accessStore).setAccess(accessID, a, signer, deadline, signature);
+    }
 }
