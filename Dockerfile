@@ -11,10 +11,7 @@ RUN apk update \
     curl
 
 WORKDIR /opt/node_app
-
-COPY package*.json ./
 RUN npm install -g npm@9.6.4
-RUN npm install --save-dev --legacy-peer-deps && npm cache clean --force
 
 ENV PATH /opt/node_app/node_modules/.bin:$PATH
 
@@ -22,8 +19,10 @@ WORKDIR /opt/node_app/app
 
 COPY . /opt/node_app/app
 
+RUN npm install --save-dev --legacy-peer-deps
+RUN npm cache clean --force
 RUN npx hardhat compile
 
 EXPOSE 8545
 
-CMD npx hardhat node --hostname 0.0.0.0 --network hardhat --no-deploy & npx hardhat run scripts/deploy.ts --network localhost & sleep infinity & wait
+CMD npx hardhat node
