@@ -26,4 +26,4 @@ RUN npx hardhat compile
 
 EXPOSE 8545
 
-CMD npx hardhat node
+CMD npx hardhat node && sleep infinity
