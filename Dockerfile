@@ -22,8 +22,6 @@ WORKDIR /opt/node_app/app
 
 COPY . /opt/node_app/app
 
-RUN npx hardhat compile
-
 EXPOSE 8545
 
-CMD npx hardhat node && sleep infinity
+CMD npx hardhat node
