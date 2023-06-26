@@ -5,7 +5,7 @@
 // Runtime Environment's members available in the global scope.
 import { ethers } from "hardhat";
 
-async function main() {
+const main = async function() {
   // Hardhat always runs the compile task when running scripts with its command
   // line interface.
   //
@@ -45,9 +45,5 @@ async function main() {
   console.log("DataStore deployed to:", dataStore.address);
 }
 
-// We recommend this pattern to be able to use async/await everywhere
-// and properly handle errors.
-main().catch((error) => {
-  console.error(error);
-  process.exitCode = 1;
-});
+export default main;
+
