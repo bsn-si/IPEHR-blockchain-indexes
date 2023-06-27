@@ -1,4 +1,4 @@
-FROM 18.12.1-alpine3.17
+FROM node:18.12.1-alpine3.17
 
 WORKDIR /opt/node_app
 RUN npm install -g npm@9.7.2
