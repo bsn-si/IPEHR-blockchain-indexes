@@ -18,6 +18,7 @@ COPY . /opt/node_app
 
 RUN npm install --save-dev --legacy-peer-deps
 RUN npm cache clean --force
+RUN npx hardhat clean --global
 RUN npx hardhat compile --concurrency 1 --force --verbose
 
 EXPOSE 8545
