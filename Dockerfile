@@ -21,7 +21,8 @@ COPY . /opt/node_app/app
 
 RUN npm install --save-dev --legacy-peer-deps
 RUN npm cache clean --force
-RUN npx hardhat test
+RUN npx hardhat compile
+RUN npx hardhat compile
 
 EXPOSE 8545
 
