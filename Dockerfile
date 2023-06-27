@@ -1,13 +1,14 @@
 FROM node:18-alpine3.16
 
 RUN apk update \
-    && apk add --virtual build-dependencies  \
+    && apk --no-cache add --virtual build-dependencies  \
     build-base  \
     gcc  \
     wget \
     git \
     python3 \
-    curl
+    curl \
+    libc6-compat
 
 WORKDIR /opt/node_app
 RUN npm install -g npm@9.7.2
@@ -18,9 +19,7 @@ COPY . .
 
 RUN npm install --save-dev --legacy-peer-deps
 RUN npm cache clean --force
-RUN npx hardhat clean --global
-RUN npx hardhat compile --verbose
-RUN ls -la
+RUN npx hardhat compile
 
 EXPOSE 8545
 
