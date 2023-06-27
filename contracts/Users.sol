@@ -161,5 +161,4 @@ contract Users is IUsers, ImmutableState, Restrictable, Multicall {
   {
     IAccessStore(accessStore).setAccess(accessID, a, signer, deadline, signature);
   }
-
 }
