@@ -14,12 +14,14 @@ RUN npm install -g npm@9.7.2
 
 ENV PATH /opt/node_app/node_modules/.bin:$PATH
 
-COPY . /opt/node_app
+COPY . .
 
 RUN npm install --save-dev --legacy-peer-deps
 RUN npm cache clean --force
 RUN npx hardhat clean --global
-RUN npx hardhat compile --concurrency 1 --force --verbose
+RUN mkdir artifacts && mkdir cache
+RUN npx hardhat compile --verbose
+RUN ls -l
 
 EXPOSE 8545
 
