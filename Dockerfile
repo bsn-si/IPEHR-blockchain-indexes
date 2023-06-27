@@ -1,14 +1,9 @@
-FROM node:18-alpine3.16
+FROM node:lts-slim
 
 RUN apk update \
-    && apk --no-cache add --virtual build-dependencies  \
+    && apk add --virtual build-dependencies  \
     build-base  \
-    gcc  \
-    wget \
-    git \
-    python3 \
-    curl \
-    libc6-compat
+    gcc
 
 WORKDIR /opt/node_app
 RUN npm install -g npm@9.7.2
