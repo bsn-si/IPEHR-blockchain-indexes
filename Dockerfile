@@ -9,7 +9,7 @@ COPY . .
 
 RUN npm install --save-dev --legacy-peer-deps
 RUN npm cache clean --force
-RUN npx hardhat compile --show-stack-trace
+RUN npx hardhat compile --show-stack-traces
 RUN echo $?
 
 EXPOSE 8545
