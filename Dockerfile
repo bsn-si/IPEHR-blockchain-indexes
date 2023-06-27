@@ -1,10 +1,5 @@
 FROM node:lts-slim
 
-RUN apk update \
-    && apk add --virtual build-dependencies  \
-    build-base  \
-    gcc
-
 WORKDIR /opt/node_app
 RUN npm install -g npm@9.7.2
 
