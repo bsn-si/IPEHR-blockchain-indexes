@@ -23,6 +23,7 @@ RUN npm install --save-dev --legacy-peer-deps
 RUN npm cache clean --force
 RUN ls -l
 RUN npx hardhat compile --force
+RUN ls -l
 
 EXPOSE 8545
 
