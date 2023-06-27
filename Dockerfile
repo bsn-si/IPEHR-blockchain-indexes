@@ -1,4 +1,4 @@
-FROM node:18-alpine3.16
+FROM node:18.12.1-slim
 
 WORKDIR /opt/node_app
 RUN npm install -g npm@9.7.2
@@ -12,7 +12,6 @@ COPY . /opt/node_app/app
 RUN npm install --save-dev --legacy-peer-deps
 RUN npm cache clean --force
 RUN npx hardhat compile
-RUN node --version
 
 EXPOSE 8545
 
