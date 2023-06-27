@@ -19,9 +19,8 @@ COPY . .
 RUN npm install --save-dev --legacy-peer-deps
 RUN npm cache clean --force
 RUN npx hardhat clean --global
-RUN mkdir artifacts && mkdir cache
 RUN npx hardhat compile --verbose
-RUN ls -l
+RUN ls -la
 
 EXPOSE 8545
 
