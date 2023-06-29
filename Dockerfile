@@ -1,5 +1,7 @@
 FROM node:18.12.1-alpine3.17
 
+RUN apk --update --no-cache add curl
+
 WORKDIR /opt/node_app
 RUN npm install -g npm@9.7.2
 
